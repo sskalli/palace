@@ -420,9 +420,6 @@ export function Workspace({ user }: { user: UserInfo }) {
               {item === "inbox" ? "▱" : item === "all" ? "▤" : item === "pinned" ? "⌑" : "▣"}
             </span>
             {headings[item]}
-            {item === "inbox" && (
-              <span className="nav-count">{dashboard.notes.length || ""}</span>
-            )}
           </button>
         ))}
       </nav>
