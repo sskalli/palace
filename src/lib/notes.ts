@@ -97,7 +97,7 @@ export async function getDashboard(userId: string, params: URLSearchParams) {
     db.note.findMany({
       where,
       orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
-      take: 60,
+      take: query ? 60 : undefined,
       select: {
         id: true,
         title: true,
