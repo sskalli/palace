@@ -7,14 +7,14 @@ const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], var
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono" });
 
 export const metadata: Metadata = {
-  title: "Palace — your notes, in one place",
-  description: "A calm, Markdown-first space for your notes.",
+	title: "Palace",
+	description: "A calm, Markdown-first space for your notes.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return (
-    <html lang="en" className={`${geist.variable} ${plexMono.variable} ${jetbrainsMono.variable}`}>
-      <body>{children}</body>
-    </html>
-  );
+	return (
+		<html lang="en" className={`${geist.variable} ${plexMono.variable} ${jetbrainsMono.variable}`}>
+			<body>{children}</body>
+		</html>
+	);
 }
