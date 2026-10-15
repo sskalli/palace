@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUserId, jsonError } from "@/lib/http";
+import { folderPath } from "@/lib/folder-tree";
 import { buildMarkdownExportEntries } from "@/lib/markdown-export";
 
 export async function GET() {
@@ -8,11 +9,14 @@ export async function GET() {
 	if (!userId) return jsonError("Sign in to export notes.", 401);
 
 	try {
+		const folders = await prisma.folder.findMany({
+			where: { userId },
+			select: { id: true, name: true, parentId: true },
+		});
 		const notes = await prisma.note.findMany({
 			where: { userId, archivedAt: null },
 			orderBy: [{ folder: { name: "asc" } }, { title: "asc" }],
 			include: {
-				folder: { select: { name: true } },
 				noteTags: { include: { tag: { select: { name: true } } } },
 			},
 		});
@@ -26,7 +30,7 @@ export async function GET() {
 				id: note.id,
 				title: note.title,
 				contentMarkdown: note.contentMarkdown,
-				folderName: note.folder?.name ?? null,
+				folderPath: folderPath(folders, note.folderId).map((folder) => folder.name),
 				tags: note.noteTags.map(({ tag }) => tag.name),
 				createdAt: note.createdAt,
 				updatedAt: note.updatedAt,

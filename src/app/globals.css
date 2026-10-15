@@ -457,6 +457,10 @@ textarea:focus-visible {
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 12px;
 }
+.note-card-container {
+	position: relative;
+	min-width: 0;
+}
 .note-card {
 	display: flex;
 	min-height: 150px;
@@ -473,6 +477,35 @@ textarea:focus-visible {
 .note-card:hover {
 	border-color: var(--accent-muted);
 	background: var(--bg-elevated);
+}
+.note-card-deletable {
+	padding-right: 56px;
+}
+.note-card-delete {
+	position: absolute;
+	top: 12px;
+	right: 12px;
+	display: inline-flex;
+	width: 30px;
+	height: 30px;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 1px solid rgb(231 128 128 / 35%);
+	border-radius: var(--radius-sm);
+	color: var(--danger);
+	background: transparent;
+	cursor: pointer;
+}
+.icon-button.danger {
+	color: var(--danger);
+}
+.icon-button.danger:hover {
+	color: var(--danger);
+	background: rgb(231 128 128 / 10%);
+}
+.note-card-delete:hover {
+	background: rgb(231 128 128 / 10%);
 }
 .note-card-head {
 	display: flex;
@@ -1158,6 +1191,77 @@ textarea:focus-visible {
 .folder-row.menu-open .folder-tools {
 	opacity: 1;
 }
+.folder-row {
+	padding-left: calc(var(--depth, 0) * 14px);
+}
+.folder-row.dragging {
+	opacity: 0.45;
+}
+.folder-row.drop-target {
+	outline: 1px dashed var(--accent);
+	outline-offset: -1px;
+	background: var(--accent-muted);
+}
+.folder-tree.drop-target {
+	border-radius: var(--radius-md);
+	outline: 1px dashed var(--accent);
+	outline-offset: 2px;
+}
+.tree-toggle {
+	display: inline-flex;
+	width: 20px;
+	height: 28px;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-sm);
+	color: var(--text-muted);
+	background: transparent;
+	cursor: pointer;
+}
+.tree-toggle:hover {
+	color: var(--text-primary);
+}
+.tree-toggle svg {
+	transition: transform 0.15s;
+}
+.tree-toggle[aria-expanded="true"] svg {
+	transform: rotate(90deg);
+}
+.tree-toggle.empty {
+	visibility: hidden;
+	cursor: default;
+}
+.tree-note-row {
+	padding-left: calc(var(--depth, 0) * 14px + 20px + 14px);
+}
+.tree-note {
+	min-height: 30px;
+	font-size: 13px;
+}
+.breadcrumb a:hover {
+	color: var(--text-primary);
+}
+.list-section + .list-section,
+.list-section + .load-more {
+	margin-top: 28px;
+}
+.list-section-title {
+	margin: 0 0 10px;
+	color: var(--text-muted);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 1.2px;
+	text-transform: uppercase;
+}
+.note-card.folder-card {
+	min-height: 0;
+}
+.note-card.folder-card .note-card-head {
+	margin-bottom: 12px;
+}
 .danger-button {
 	display: inline-flex;
 	min-height: 36px;
@@ -1402,4 +1506,28 @@ textarea:focus-visible {
 		min-height: 100vh;
 		padding: 28px 23px;
 	}
+}
+
+@media (min-width: 701px) {
+	.sidebar:not(:is(:hover, .expanded, :has(:focus-visible))) {
+		.folder-row {
+			padding-left: 0;
+		}
+		.tree-toggle {
+			display: none;
+		}
+		.folder-row.nested,
+		.tree-note-row {
+			display: none;
+		}
+	}
+}
+.section-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 14px;
+}
+.section-empty p {
+	margin: 0;
 }

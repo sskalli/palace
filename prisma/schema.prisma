@@ -32,7 +32,7 @@ model Folder {
   children  Folder[]   @relation("FolderTree")
   notes     Note[]
 
-  @@unique([userId, name])
+  @@index([userId, parentId])
 }
 
 model Note {

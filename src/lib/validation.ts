@@ -30,10 +30,17 @@ export const noteUpdateSchema = z
 export const folderCreateSchema = z
 	.object({
 		name: z.string().trim().min(1).max(80),
+		parentId: z.string().trim().min(1).max(100).nullable().optional(),
 	})
 	.strict();
 
-export const folderUpdateSchema = folderCreateSchema;
+export const folderUpdateSchema = z
+	.object({
+		name: z.string().trim().min(1).max(80).optional(),
+		parentId: z.string().trim().min(1).max(100).nullable().optional(),
+	})
+	.strict()
+	.refine((value) => Object.keys(value).length > 0, "At least one field is required");
 
 export const registrationSchema = z
 	.object({

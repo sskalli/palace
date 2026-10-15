@@ -10,7 +10,7 @@ describe("Markdown export generation", () => {
 				id: "note-1",
 				title: "Example note",
 				contentMarkdown: "Markdown content here.",
-				folderName: "Work",
+				folderPath: ["Work"],
 				tags: ["career", "project"],
 				createdAt,
 				updatedAt: createdAt,
@@ -27,12 +27,12 @@ describe("Markdown export generation", () => {
 	it("uses safe fallback names, sanitizes path segments, and prevents archive collisions", () => {
 		expect(sanitizeExportSegment("../:?", "Fallback")).toBe("..---");
 		const entries = buildMarkdownExportEntries([
-			{ id: "one", title: "", contentMarkdown: "", folderName: null, tags: [], createdAt, updatedAt: createdAt },
+			{ id: "one", title: "", contentMarkdown: "", folderPath: [], tags: [], createdAt, updatedAt: createdAt },
 			{
 				id: "two",
 				title: "README",
 				contentMarkdown: "",
-				folderName: null,
+				folderPath: [],
 				tags: [],
 				createdAt,
 				updatedAt: createdAt,
@@ -41,7 +41,7 @@ describe("Markdown export generation", () => {
 				id: "three",
 				title: "Untitled note",
 				contentMarkdown: "",
-				folderName: null,
+				folderPath: [],
 				tags: [],
 				createdAt,
 				updatedAt: createdAt,

@@ -3,16 +3,21 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { useState, type ReactNode } from "react";
-import { ArchiveIcon, DownloadIcon, FolderIcon, NotesIcon, PinIcon, PlusIcon, SignOutIcon } from "@/components/icons";
+import { useEffect, useState, type ReactNode } from "react";
+import { ArchiveIcon, DownloadIcon, NotesIcon, PinIcon, PlusIcon, SignOutIcon } from "@/components/icons";
 import { ContextMenu } from "@/components/context-menu";
 import { FolderDialogs, type FolderDialog } from "@/components/folder-dialogs";
-import type { FolderSummary, TagSummary } from "@/lib/client-types";
+import { FolderTree } from "@/components/folder-tree";
+import { Modal } from "@/components/modal";
+import { api, errorText } from "@/lib/api-client";
+import { descendantIds, isSameOrDescendant } from "@/lib/folder-tree";
+import type { FolderSummary, TagSummary, TreeNote } from "@/lib/client-types";
 
 interface SidebarProps {
 	email: string;
 	folders: FolderSummary[];
 	tags: TagSummary[];
+	treeNotes: TreeNote[];
 	drawerOpen: boolean;
 	creatingNote: boolean;
 	onCloseDrawer: () => void;
@@ -34,6 +39,7 @@ export function Sidebar({
 	email,
 	folders,
 	tags,
+	treeNotes,
 	drawerOpen,
 	creatingNote,
 	onCloseDrawer,
@@ -45,17 +51,85 @@ export function Sidebar({
 	const searchParams = useSearchParams();
 	const router = useRouter();
 	const [menu, setMenu] = useState<{ folder: FolderSummary; anchor: DOMRect } | null>(null);
+	const [noteMenu, setNoteMenu] = useState<{ note: TreeNote; anchor: DOMRect } | null>(null);
+	const [noteToDelete, setNoteToDelete] = useState<TreeNote | null>(null);
+	const [deleteError, setDeleteError] = useState("");
+	const [dragging, setDragging] = useState(false);
 	const [dialog, setDialog] = useState<FolderDialog | null>(null);
+	const [openOverrides, setOpenOverrides] = useState<Record<string, boolean>>({});
+	const setOpen = (id: string, open: boolean) => setOpenOverrides((current) => ({ ...current, [id]: open }));
+
+	// Keeps the sidebar open while dragging, since the pointer-hover that expands it is lost mid-drag.
+	useEffect(() => {
+		const start = () => setDragging(true);
+		const end = () => setDragging(false);
+		document.addEventListener("dragstart", start);
+		document.addEventListener("dragend", end);
+		document.addEventListener("drop", end);
+		return () => {
+			document.removeEventListener("dragstart", start);
+			document.removeEventListener("dragend", end);
+			document.removeEventListener("drop", end);
+		};
+	}, []);
 
 	const view = searchParams.get("view") ?? "all";
 	const folderId = searchParams.get("folder");
 	const tag = searchParams.get("tag");
 	const onNotesPage = pathname === "/";
 
+	async function moveFolder(folder: FolderSummary, parentId: string | null) {
+		try {
+			await api(`/api/folders/${folder.id}`, { method: "PATCH", body: { parentId } });
+			await onFoldersChanged();
+		} catch (cause) {
+			onError(errorText(cause, "The folder could not be moved."));
+		}
+	}
+
+	async function moveNote(noteId: string, folderId: string | null) {
+		try {
+			await api(`/api/notes/${noteId}`, { method: "PATCH", body: { folderId } });
+			await onFoldersChanged();
+			window.dispatchEvent(new CustomEvent("palace:notes-changed"));
+		} catch (cause) {
+			onError(errorText(cause, "The note could not be moved."));
+		}
+	}
+
+	async function updateNote(note: TreeNote, body: { isPinned?: boolean; archived?: boolean }, fallback: string) {
+		try {
+			await api(`/api/notes/${note.id}`, { method: "PATCH", body });
+			await onFoldersChanged();
+			window.dispatchEvent(new CustomEvent("palace:notes-changed"));
+			if (body.archived && pathname === `/notes/${note.id}`) router.refresh();
+		} catch (cause) {
+			onError(errorText(cause, fallback));
+		}
+	}
+
+	// Only archived notes can be deleted permanently, so the note is archived first.
+	async function deleteNote() {
+		if (!noteToDelete) return;
+		try {
+			await api(`/api/notes/${noteToDelete.id}`, { method: "PATCH", body: { archived: true } });
+			await api(`/api/notes/${noteToDelete.id}/permanent`, { method: "DELETE" });
+		} catch (cause) {
+			setDeleteError(errorText(cause, "The note could not be deleted."));
+			return;
+		}
+		const deletedId = noteToDelete.id;
+		setNoteToDelete(null);
+		setDeleteError("");
+		await onFoldersChanged();
+		window.dispatchEvent(new CustomEvent("palace:notes-changed"));
+		if (pathname === `/notes/${deletedId}`) router.push("/");
+	}
+
 	return (
 		<>
 			<aside
-				className={`sidebar${drawerOpen ? " open" : ""}${menu ? " expanded" : ""}`}
+				className={`sidebar${drawerOpen ? " open" : ""}${menu || noteMenu || dragging ? " expanded" : ""}`}
 				aria-label="Main navigation"
 				onClick={(event) => {
 					if (event.target instanceof Element && event.target.closest("a")) onCloseDrawer();
@@ -99,46 +173,33 @@ export function Sidebar({
 					/>
 				</nav>
 
-				<div className="nav-section nav-section-folders">
-					<span className="nav-label">Folders</span>
-					<button
-						className="tiny-action"
-						title="Create folder"
-						aria-label="Create folder"
-						onClick={() => setDialog({ kind: "create" })}
-					>
-						<PlusIcon size={14} />
-					</button>
-				</div>
-				<nav className="nav-list">
-					{folders.map((folder) => (
-						<div
-							className={`folder-row${menu?.folder.id === folder.id ? " menu-open" : ""}`}
-							key={folder.id}
-						>
-							<NavLink
-								href={`/?view=all&folder=${encodeURIComponent(folder.id)}`}
-								active={folderId === folder.id}
-								icon={<FolderIcon />}
-								label={folder.name}
-							/>
-							<div className="folder-tools">
-								<button
-									className="tiny-action"
-									aria-label={`Folder options for ${folder.name}`}
-									aria-haspopup="menu"
-									title="Folder options"
-									onClick={(event) =>
-										setMenu({ folder, anchor: event.currentTarget.getBoundingClientRect() })
-									}
-								>
-									···
-								</button>
-							</div>
+				<FolderTree
+					folders={folders}
+					notes={treeNotes}
+					activeFolderId={onNotesPage ? folderId : null}
+					activeNoteId={pathname.startsWith("/notes/") ? pathname.slice("/notes/".length) : null}
+					menuFolderId={menu?.folder.id ?? null}
+					onOpenMenu={(folder, anchor) => setMenu({ folder, anchor })}
+					menuNoteId={noteMenu?.note.id ?? null}
+					onOpenNoteMenu={(note, anchor) => setNoteMenu({ note, anchor })}
+					onMove={(folder, parentId) => void moveFolder(folder, parentId)}
+					onMoveNote={(noteId, folderId) => void moveNote(noteId, folderId)}
+					openOverrides={openOverrides}
+					setOpen={setOpen}
+					header={
+						<div className="nav-section nav-section-folders">
+							<span className="nav-label">Folders</span>
+							<button
+								className="tiny-action"
+								title="Create folder"
+								aria-label="Create folder"
+								onClick={() => setDialog({ kind: "create" })}
+							>
+								<PlusIcon size={14} />
+							</button>
 						</div>
-					))}
-					{folders.length === 0 && <span className="muted-text folder-empty">No folders yet</span>}
-				</nav>
+					}
+				/>
 
 				<div className="nav-section nav-section-tags">
 					<span className="nav-label">Tags</span>
@@ -184,13 +245,62 @@ export function Sidebar({
 					anchor={menu.anchor}
 					onClose={() => setMenu(null)}
 					items={[
+						{
+							label: "New subfolder",
+							onSelect: () => {
+								setOpen(menu.folder.id, true);
+								setDialog({ kind: "create", parent: menu.folder });
+							},
+						},
 						{ label: "Rename", onSelect: () => setDialog({ kind: "rename", folder: menu.folder }) },
 						{
 							label: "Delete",
 							danger: true,
-							onSelect: () => setDialog({ kind: "delete", folder: menu.folder }),
+							onSelect: () =>
+								setDialog({
+									kind: "delete",
+									folder: menu.folder,
+									subfolderCount: descendantIds(folders, menu.folder.id).length,
+								}),
 						},
 					]}
+				/>
+			)}
+			{noteMenu && (
+				<ContextMenu
+					anchor={noteMenu.anchor}
+					onClose={() => setNoteMenu(null)}
+					items={[
+						{
+							label: noteMenu.note.isPinned ? "Unpin" : "Pin",
+							onSelect: () =>
+								void updateNote(
+									noteMenu.note,
+									{ isPinned: !noteMenu.note.isPinned },
+									"The note could not be updated.",
+								),
+						},
+						{
+							label: "Archive",
+							onSelect: () =>
+								void updateNote(noteMenu.note, { archived: true }, "The note could not be archived."),
+						},
+						{ label: "Delete", danger: true, onSelect: () => setNoteToDelete(noteMenu.note) },
+					]}
+				/>
+			)}
+			{noteToDelete && (
+				<Modal
+					title="Delete note permanently?"
+					description={`“${noteToDelete.title}” will be permanently deleted and cannot be recovered.`}
+					errorMessage={deleteError}
+					confirmLabel="Delete permanently"
+					danger
+					onConfirm={deleteNote}
+					onClose={() => {
+						setNoteToDelete(null);
+						setDeleteError("");
+					}}
 				/>
 			)}
 			<FolderDialogs
@@ -199,7 +309,7 @@ export function Sidebar({
 				onChanged={onFoldersChanged}
 				onError={onError}
 				onDeleted={(folder) => {
-					if (folderId === folder.id) router.push("/");
+					if (folderId && isSameOrDescendant(folders, folderId, folder.id)) router.push("/");
 				}}
 			/>
 		</>
