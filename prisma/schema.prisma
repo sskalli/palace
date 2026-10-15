@@ -41,6 +41,7 @@ model Note {
   folderId        String?
   title           String     @default("")
   contentMarkdown String     @default("")
+  preview         String     @default("")
   isPinned        Boolean    @default(false)
   archivedAt      DateTime?
   createdAt       DateTime   @default(now())
@@ -54,6 +55,8 @@ model Note {
   @@index([userId, updatedAt])
   @@index([userId, archivedAt])
   @@index([userId, folderId])
+  @@index([userId, archivedAt, title])
+  @@index([userId, title])
 }
 
 model Tag {

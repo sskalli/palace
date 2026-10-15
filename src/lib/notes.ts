@@ -5,26 +5,31 @@ import { parseWikilinkTargets, resolveWikilinkTargets } from "@/lib/wikilinks";
 
 type Transaction = Prisma.TransactionClient;
 
-export async function replaceNoteTags(transaction: Transaction, noteId: string, userId: string, names: string[]) {
-	const normalizedNames = normalizeTagNames(names);
-	const tags = await Promise.all(
-		normalizedNames.map((name) => {
-			const normalizedName = normalizeTagName(name);
-			return transaction.tag.upsert({
-				where: { userId_normalizedName: { userId, normalizedName } },
-				create: { userId, name, normalizedName },
-				update: {},
-			});
-		}),
-	);
+export function makePreview(markdown: string): string {
+	return markdown.replace(/\s+/g, " ").trim().slice(0, 180);
+}
 
-	await transaction.noteTag.deleteMany({ where: { noteId } });
-	if (tags.length) {
-		await transaction.noteTag.createMany({
-			data: tags.map(({ id }) => ({ noteId, tagId: id })),
-			skipDuplicates: true,
-		});
+export async function replaceNoteTags(transaction: Transaction, noteId: string, userId: string, names: string[]) {
+	const entries = normalizeTagNames(names).map((name) => ({ name, normalizedName: normalizeTagName(name) }));
+	if (!entries.length) {
+		await transaction.noteTag.deleteMany({ where: { noteId } });
+		return;
 	}
+
+	await transaction.tag.createMany({
+		data: entries.map((entry) => ({ userId, ...entry })),
+		skipDuplicates: true,
+	});
+	const tags = await transaction.tag.findMany({
+		where: { userId, normalizedName: { in: entries.map((entry) => entry.normalizedName) } },
+		select: { id: true },
+	});
+	const tagIds = tags.map(({ id }) => id);
+	await transaction.noteTag.deleteMany({ where: { noteId, tagId: { notIn: tagIds } } });
+	await transaction.noteTag.createMany({
+		data: tagIds.map((tagId) => ({ noteId, tagId })),
+		skipDuplicates: true,
+	});
 }
 
 export async function refreshNoteLinks(
@@ -36,7 +41,7 @@ export async function refreshNoteLinks(
 	const targets = parseWikilinkTargets(markdown);
 	const candidates = targets.length
 		? await transaction.note.findMany({
-				where: { userId, archivedAt: null },
+				where: { userId, archivedAt: null, title: { in: targets } },
 				select: { id: true, userId: true, title: true, archivedAt: true },
 			})
 		: [];
@@ -116,31 +121,37 @@ export async function listNotes(userId: string, filter: NoteListFilter) {
 			: {}),
 	};
 
-	if (filter.cursor) {
-		const cursorNote = await prisma.note.findFirst({
-			where: { ...where, id: filter.cursor },
-			select: { id: true },
-		});
-		if (!cursorNote) return null;
-	}
-
-	const rows = await prisma.note.findMany({
-		where,
-		...(filter.cursor ? { cursor: { id: filter.cursor }, skip: 1 } : {}),
-		take: NOTE_PAGE_SIZE + 1,
-		orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-		include: {
-			folder: { select: { id: true, name: true } },
-			noteTags: { include: { tag: { select: { id: true, name: true } } } },
-		},
-	});
+	const [cursorNote, rows] = await Promise.all([
+		filter.cursor
+			? prisma.note.findFirst({ where: { ...where, id: filter.cursor }, select: { id: true } })
+			: Promise.resolve(true),
+		prisma.note.findMany({
+			where,
+			...(filter.cursor ? { cursor: { id: filter.cursor }, skip: 1 } : {}),
+			take: NOTE_PAGE_SIZE + 1,
+			orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+			select: {
+				id: true,
+				userId: true,
+				folderId: true,
+				title: true,
+				preview: true,
+				isPinned: true,
+				archivedAt: true,
+				createdAt: true,
+				updatedAt: true,
+				folder: { select: { id: true, name: true } },
+				noteTags: { select: { tag: { select: { id: true, name: true } } } },
+			},
+		}),
+	]);
+	if (!cursorNote) return null;
 	const page = rows.slice(0, NOTE_PAGE_SIZE);
 
 	return {
 		notes: page.map(({ noteTags, ...note }) => ({
 			...note,
 			title: note.title.trim() || "Untitled note",
-			preview: note.contentMarkdown.replace(/\s+/g, " ").trim().slice(0, 180),
 			tags: noteTags.map(({ tag }) => tag),
 		})),
 		nextCursor: rows.length > NOTE_PAGE_SIZE ? (page[page.length - 1]?.id ?? null) : null,
