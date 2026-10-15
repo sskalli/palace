@@ -65,6 +65,19 @@ export const TrashIcon = (props: IconProps) => (
 	</Svg>
 );
 
+export const EyeIcon = (props: IconProps) => (
+	<Svg {...props}>
+		<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+		<circle cx="12" cy="12" r="3" />
+	</Svg>
+);
+
+export const PenIcon = (props: IconProps) => (
+	<Svg {...props}>
+		<path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19l-4 1zM14 7l3 3" />
+	</Svg>
+);
+
 export const FolderIcon = (props: IconProps) => (
 	<Svg {...props}>
 		<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
