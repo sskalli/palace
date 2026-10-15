@@ -1,5 +1,6 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { noteDetailInclude, refreshNoteLinks, replaceNoteTags, serializeNote } from "@/lib/notes";
+import { makePreview, noteDetailInclude, refreshNoteLinks, replaceNoteTags, serializeNote } from "@/lib/notes";
 import { getAuthenticatedUserId, jsonError, parseJson } from "@/lib/http";
 import { noteUpdateSchema, recordIdSchema } from "@/lib/validation";
 
@@ -35,50 +36,55 @@ export async function PATCH(request: Request, context: RouteContext) {
 	const data = await parseJson(request, noteUpdateSchema);
 	if (!data) return jsonError("The note update is invalid.", 400);
 
+	const updateData: Prisma.NoteUpdateInput = {
+		...(data.title !== undefined ? { title: data.title } : {}),
+		...(data.contentMarkdown !== undefined
+			? { contentMarkdown: data.contentMarkdown, preview: makePreview(data.contentMarkdown) }
+			: {}),
+		...(data.folderId !== undefined
+			? { folder: data.folderId ? { connect: { id: data.folderId, userId } } : { disconnect: true } }
+			: {}),
+		...(data.isPinned !== undefined ? { isPinned: data.isPinned } : {}),
+		...(data.archived !== undefined ? { archivedAt: data.archived ? new Date() : null } : {}),
+	};
+	const include = noteDetailInclude(userId);
+
 	try {
+		// Moves, pins and archives touch one row, so they skip the transaction and the pre-read.
+		if (data.contentMarkdown === undefined && data.tags === undefined) {
+			const note = await prisma.note.update({ where: { id, userId }, data: updateData, include });
+			return Response.json(serializeNote(note));
+		}
+
 		const note = await prisma.$transaction(async (transaction) => {
-			const existing = await transaction.note.findFirst({
-				where: { id, userId },
-				select: { id: true, contentMarkdown: true },
-			});
+			const existing =
+				data.contentMarkdown !== undefined
+					? await transaction.note.findFirst({ where: { id, userId }, select: { contentMarkdown: true } })
+					: await transaction.note.findFirst({ where: { id, userId }, select: { id: true } });
 			if (!existing) return null;
-
-			if (data.folderId) {
-				const folder = await transaction.folder.findFirst({
-					where: { id: data.folderId, userId },
-					select: { id: true },
-				});
-				if (!folder) throw new Error("INVALID_FOLDER");
-			}
-
-			await transaction.note.update({
-				where: { id: existing.id },
-				data: {
-					...(data.title !== undefined ? { title: data.title } : {}),
-					...(data.contentMarkdown !== undefined ? { contentMarkdown: data.contentMarkdown } : {}),
-					...(data.folderId !== undefined ? { folderId: data.folderId } : {}),
-					...(data.isPinned !== undefined ? { isPinned: data.isPinned } : {}),
-					...(data.archived !== undefined ? { archivedAt: data.archived ? new Date() : null } : {}),
-				},
-			});
 
 			if (data.tags !== undefined) {
 				await replaceNoteTags(transaction, id, userId, data.tags);
 			}
-			if (data.contentMarkdown !== undefined && data.contentMarkdown !== existing.contentMarkdown) {
+			if (
+				data.contentMarkdown !== undefined &&
+				"contentMarkdown" in existing &&
+				data.contentMarkdown !== existing.contentMarkdown
+			) {
 				await refreshNoteLinks(transaction, userId, id, data.contentMarkdown);
 			}
 
-			return transaction.note.findFirstOrThrow({
-				where: { id, userId },
-				include: noteDetailInclude(userId),
-			});
+			return transaction.note.update({ where: { id, userId }, data: updateData, include });
 		});
 
 		return note ? Response.json(serializeNote(note)) : jsonError("Note not found.", 404);
 	} catch (error) {
-		if (error instanceof Error && error.message === "INVALID_FOLDER") {
-			return jsonError("Choose a folder belonging to your account.", 400);
+		if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+			// The update matched nothing: either the note or the target folder is not the user's.
+			const owned = await prisma.note.count({ where: { id, userId } });
+			return owned
+				? jsonError("Choose a folder belonging to your account.", 400)
+				: jsonError("Note not found.", 404);
 		}
 		console.error("Note update failed", error);
 		return jsonError("The note could not be saved.", 500);

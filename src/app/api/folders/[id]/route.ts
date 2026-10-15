@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUserId, jsonError, parseJson } from "@/lib/http";
-import { descendantIds, isSameOrDescendant } from "@/lib/folder-tree";
-import { ensureNameFree, folderErrorResponse, FolderError } from "@/lib/folders";
+import { ensureNameFree, folderErrorResponse, folderWithDescendantIds, FolderError } from "@/lib/folders";
 import { folderUpdateSchema, recordIdSchema } from "@/lib/validation";
 
 interface RouteContext {
@@ -19,21 +18,24 @@ export async function PATCH(request: Request, context: RouteContext) {
 
 	try {
 		const folder = await prisma.$transaction(async (transaction) => {
-			const folders = await transaction.folder.findMany({
-				where: { userId },
-				select: { id: true, name: true, parentId: true },
+			const existing = await transaction.folder.findFirst({
+				where: { id, userId },
+				select: { name: true, parentId: true },
 			});
-			const existing = folders.find((candidate) => candidate.id === id);
 			if (!existing) return null;
 
 			const name = data.name ?? existing.name;
 			const parentId = data.parentId === undefined ? existing.parentId : data.parentId;
 
 			if (parentId && parentId !== existing.parentId) {
-				if (!folders.some((candidate) => candidate.id === parentId)) {
+				const [parent, subtree] = await Promise.all([
+					transaction.folder.findFirst({ where: { id: parentId, userId }, select: { id: true } }),
+					folderWithDescendantIds(transaction, userId, id),
+				]);
+				if (!parent) {
 					throw new FolderError("Choose a parent folder belonging to your account.", 400);
 				}
-				if (isSameOrDescendant(folders, parentId, id)) {
+				if (subtree.includes(parentId)) {
 					throw new FolderError("A folder cannot be moved into itself or one of its subfolders.", 400);
 				}
 			}
@@ -61,14 +63,9 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
 	try {
 		const deleted = await prisma.$transaction(async (transaction) => {
-			const folders = await transaction.folder.findMany({
-				where: { userId },
-				select: { id: true, parentId: true },
-			});
-			if (!folders.some((folder) => folder.id === id)) return false;
-
 			// Subfolders go with their parent; the notes inside are kept and become unfiled.
-			const ids = [id, ...descendantIds(folders, id)];
+			const ids = await folderWithDescendantIds(transaction, userId, id);
+			if (!ids.length) return false;
 			await transaction.note.updateMany({
 				where: { userId, folderId: { in: ids } },
 				data: { folderId: null },
