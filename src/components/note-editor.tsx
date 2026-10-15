@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, type FocusEvent } from "react";
-import { ArchiveIcon, PinIcon, TrashIcon, UnarchiveIcon } from "@/components/icons";
+import { ArchiveIcon, EyeIcon, PenIcon, PinIcon, TrashIcon, UnarchiveIcon } from "@/components/icons";
 import { MarkdownPreview } from "@/components/markdown-preview";
 import { Modal } from "@/components/modal";
 import { errorText } from "@/lib/api-client";
@@ -49,6 +49,7 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 		flush();
 	}
 
+	const previewLabel = preview ? "Back to writing" : "Preview";
 	const pinLabel = draft.isPinned ? "Unpin note" : "Pin note";
 	const archiveLabel = draft.archived ? "Unarchive note" : "Archive note";
 
@@ -91,6 +92,14 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 						)}
 					</div>
 					<div className="editor-toolbar-right">
+						<button
+							className="icon-button"
+							title={previewLabel}
+							aria-label={previewLabel}
+							onClick={() => setPreview((value) => !value)}
+						>
+							{preview ? <PenIcon /> : <EyeIcon />}
+						</button>
 						<button
 							className="icon-button"
 							title={pinLabel}
@@ -142,12 +151,6 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 					/>
 					<div className="editor-meta">
 						<TagEditor tags={draft.tags} onChange={(tags) => update({ tags })} />
-						<button
-							className={`text-button${preview ? " selected" : ""}`}
-							onClick={() => setPreview((value) => !value)}
-						>
-							{preview ? "Write" : "Preview"}
-						</button>
 					</div>
 					{preview ? (
 						<MarkdownPreview content={draft.contentMarkdown} wikilinks={note.wikilinks} />
