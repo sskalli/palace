@@ -6,7 +6,7 @@ import { Sidebar } from "@/components/sidebar";
 import { FoldersProvider } from "@/components/folders-context";
 import { Topbar } from "@/components/topbar";
 import { useNavigation } from "@/hooks/use-navigation";
-import { api, errorText } from "@/lib/api-client";
+import { api, errorText, notifyNavigationChanged } from "@/lib/api-client";
 
 const TEXT_FIELDS = ["INPUT", "TEXTAREA", "SELECT"];
 
@@ -17,7 +17,7 @@ export function AppShell({ children, email }: { children: React.ReactNode; email
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [creatingNote, setCreatingNote] = useState(false);
 	const [toast, setToast] = useState("");
-	const { folders, tags, treeNotes, reload } = useNavigation(pathname, setToast);
+	const { folders, tags, treeNotes, reload, reloadNotes, patchTreeNote } = useNavigation(setToast);
 
 	const currentFolderId = pathname === "/" ? searchParams.get("folder") : null;
 
@@ -29,6 +29,7 @@ export function AppShell({ children, email }: { children: React.ReactNode; email
 					method: "POST",
 					body: targetFolderId ? { folderId: targetFolderId } : {},
 				});
+				notifyNavigationChanged();
 				router.push(`/notes/${note.id}`);
 			} catch (cause) {
 				setToast(errorText(cause, "The note could not be created."));
@@ -84,6 +85,8 @@ export function AppShell({ children, email }: { children: React.ReactNode; email
 				onCloseDrawer={() => setDrawerOpen(false)}
 				onNewNote={(folderId) => void createNote(folderId)}
 				onFoldersChanged={reload}
+				onNotesChanged={reloadNotes}
+				onTreeNotePatched={patchTreeNote}
 				onError={setToast}
 			/>
 			<main className="main-area">

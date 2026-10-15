@@ -106,10 +106,16 @@ export function useNoteEditor(noteId: string) {
 
 	// The note can be moved from the sidebar; the draft never carries the folder, so a save cannot undo the move.
 	useEffect(() => {
-		const refresh = () =>
+		const refresh = (event: Event) => {
+			const detail = (event as CustomEvent<{ noteId: string; folderId: string | null } | undefined>).detail;
+			if (detail) {
+				if (detail.noteId === noteId) setFolderId(detail.folderId);
+				return;
+			}
 			void api<NoteDetail>(`/api/notes/${noteId}`)
 				.then((current) => setFolderId(current.folderId))
 				.catch(() => {});
+		};
 		window.addEventListener("palace:notes-changed", refresh);
 		return () => window.removeEventListener("palace:notes-changed", refresh);
 	}, [noteId]);

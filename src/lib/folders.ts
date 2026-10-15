@@ -28,3 +28,19 @@ export async function ensureNameFree(
 export function folderErrorResponse(error: unknown): Response | null {
 	return error instanceof FolderError ? Response.json({ error: error.message }, { status: error.status }) : null;
 }
+
+/** The user's folder `id` and every folder below it (empty when the folder is not theirs), via one recursive query. */
+export async function folderWithDescendantIds(
+	transaction: Prisma.TransactionClient,
+	userId: string,
+	id: string,
+): Promise<string[]> {
+	const rows = await transaction.$queryRaw<Array<{ id: string }>>`
+		WITH RECURSIVE tree AS (
+			SELECT "id" FROM "Folder" WHERE "id" = ${id} AND "userId" = ${userId}
+			UNION
+			SELECT f."id" FROM "Folder" f JOIN tree ON f."parentId" = tree."id" WHERE f."userId" = ${userId}
+		)
+		SELECT "id" FROM tree`;
+	return rows.map((row) => row.id);
+}

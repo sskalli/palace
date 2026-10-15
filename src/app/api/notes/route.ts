@@ -1,5 +1,13 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { listNotes, noteDetailInclude, refreshNoteLinks, replaceNoteTags, serializeNote } from "@/lib/notes";
+import {
+	listNotes,
+	makePreview,
+	noteDetailInclude,
+	refreshNoteLinks,
+	replaceNoteTags,
+	serializeNote,
+} from "@/lib/notes";
 import { getAuthenticatedUserId, jsonError, parseJson } from "@/lib/http";
 import { noteCreateSchema } from "@/lib/validation";
 import { z } from "zod";
@@ -42,38 +50,31 @@ export async function POST(request: Request) {
 	if (!data) return jsonError("The note details are invalid.", 400);
 
 	try {
-		const note = await prisma.$transaction(async (transaction) => {
-			const folderId = data.folderId ?? null;
-			if (folderId) {
-				const folder = await transaction.folder.findFirst({
-					where: { id: folderId, userId },
-					select: { id: true },
-				});
-				if (!folder) throw new Error("INVALID_FOLDER");
-			}
+		const include = noteDetailInclude(userId);
+		const createData: Prisma.NoteCreateInput = {
+			user: { connect: { id: userId } },
+			...(data.folderId ? { folder: { connect: { id: data.folderId, userId } } } : {}),
+			title: data.title,
+			contentMarkdown: data.contentMarkdown,
+			preview: makePreview(data.contentMarkdown),
+		};
 
-			const created = await transaction.note.create({
-				data: {
-					userId,
-					folderId,
-					title: data.title,
-					contentMarkdown: data.contentMarkdown,
-				},
-			});
-			if (data.contentMarkdown) {
-				await refreshNoteLinks(transaction, userId, created.id, data.contentMarkdown);
-			}
-			if (data.tags.length) {
-				await replaceNoteTags(transaction, created.id, userId, data.tags);
-			}
-			return transaction.note.findFirstOrThrow({
-				where: { id: created.id, userId },
-				include: noteDetailInclude(userId),
-			});
-		});
+		const note =
+			!data.contentMarkdown && !data.tags.length
+				? await prisma.note.create({ data: createData, include })
+				: await prisma.$transaction(async (transaction) => {
+						const created = await transaction.note.create({ data: createData, select: { id: true } });
+						if (data.contentMarkdown) {
+							await refreshNoteLinks(transaction, userId, created.id, data.contentMarkdown);
+						}
+						if (data.tags.length) {
+							await replaceNoteTags(transaction, created.id, userId, data.tags);
+						}
+						return transaction.note.findFirstOrThrow({ where: { id: created.id, userId }, include });
+					});
 		return Response.json(serializeNote(note), { status: 201 });
 	} catch (error) {
-		if (error instanceof Error && error.message === "INVALID_FOLDER") {
+		if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
 			return jsonError("Choose a folder belonging to your account.", 400);
 		}
 		console.error("Note creation failed", error);

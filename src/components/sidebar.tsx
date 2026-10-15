@@ -25,6 +25,10 @@ interface SidebarProps {
 	/** Creates a note in the given folder (none when null); without an argument it goes in the folder being viewed. */
 	onNewNote: (folderId?: string | null) => void;
 	onFoldersChanged: () => Promise<void>;
+	/** Reloads notes and tags only (folders are untouched). */
+	onNotesChanged: () => Promise<void>;
+	/** Applies a confirmed change to one sidebar note without refetching. */
+	onTreeNotePatched: (id: string, patch: Partial<TreeNote>) => void;
 	onError: (message: string) => void;
 }
 
@@ -47,6 +51,8 @@ export function Sidebar({
 	onCloseDrawer,
 	onNewNote,
 	onFoldersChanged,
+	onNotesChanged,
+	onTreeNotePatched,
 	onError,
 }: SidebarProps) {
 	const pathname = usePathname();
@@ -92,8 +98,8 @@ export function Sidebar({
 	async function moveNote(noteId: string, folderId: string | null) {
 		try {
 			await api(`/api/notes/${noteId}`, { method: "PATCH", body: { folderId } });
-			await onFoldersChanged();
-			window.dispatchEvent(new CustomEvent("palace:notes-changed"));
+			onTreeNotePatched(noteId, { folderId });
+			window.dispatchEvent(new CustomEvent("palace:notes-changed", { detail: { noteId, folderId } }));
 		} catch (cause) {
 			onError(errorText(cause, "The note could not be moved."));
 		}
@@ -102,7 +108,8 @@ export function Sidebar({
 	async function updateNote(note: TreeNote, body: { isPinned?: boolean; archived?: boolean }, fallback: string) {
 		try {
 			await api(`/api/notes/${note.id}`, { method: "PATCH", body });
-			await onFoldersChanged();
+			if (body.archived) await onNotesChanged();
+			else onTreeNotePatched(note.id, body);
 			window.dispatchEvent(new CustomEvent("palace:notes-changed"));
 			if (body.archived && pathname === `/notes/${note.id}`) router.refresh();
 		} catch (cause) {
@@ -123,7 +130,7 @@ export function Sidebar({
 		const deletedId = noteToDelete.id;
 		setNoteToDelete(null);
 		setDeleteError("");
-		await onFoldersChanged();
+		await onNotesChanged();
 		window.dispatchEvent(new CustomEvent("palace:notes-changed"));
 		if (pathname === `/notes/${deletedId}`) router.push("/");
 	}
