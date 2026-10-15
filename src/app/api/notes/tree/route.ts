@@ -3,14 +3,14 @@ import { getAuthenticatedUserId, jsonError } from "@/lib/http";
 
 const TREE_NOTE_LIMIT = 2000;
 
-/** Lightweight list of filed, non-archived notes for the sidebar tree. */
+/** Lightweight list of non-archived notes for the sidebar tree. */
 export async function GET() {
 	const userId = await getAuthenticatedUserId();
 	if (!userId) return jsonError("Sign in to view notes.", 401);
 
 	try {
 		const notes = await prisma.note.findMany({
-			where: { userId, archivedAt: null, folderId: { not: null } },
+			where: { userId, archivedAt: null },
 			orderBy: [{ title: "asc" }, { id: "asc" }],
 			take: TREE_NOTE_LIMIT,
 			select: { id: true, title: true, folderId: true, isPinned: true },

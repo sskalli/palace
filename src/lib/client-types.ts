@@ -5,7 +5,7 @@ export interface FolderSummary {
 	_count?: { notes: number };
 }
 
-/** A filed note, as shown in the sidebar tree. */
+/** A note, as shown in the sidebar tree. */
 /** Drag & drop data type carrying a note id. */
 export const NOTE_DRAG_TYPE = "application/x-palace-note";
 

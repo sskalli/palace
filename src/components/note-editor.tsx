@@ -6,6 +6,7 @@ import { ArchiveIcon, PinIcon, TrashIcon, UnarchiveIcon } from "@/components/ico
 import { MarkdownPreview } from "@/components/markdown-preview";
 import { Modal } from "@/components/modal";
 import { errorText } from "@/lib/api-client";
+import { useFolders } from "@/components/folders-context";
 import { folderPath } from "@/lib/folder-tree";
 import { TagEditor } from "@/components/tag-editor";
 import { useNoteEditor, type SaveState } from "@/hooks/use-note-editor";
@@ -13,8 +14,9 @@ import { useNoteEditor, type SaveState } from "@/hooks/use-note-editor";
 const SAVE_LABELS: Record<SaveState, string> = { saved: "Saved", saving: "Saving…", failed: "Save failed" };
 
 export function NoteEditor({ noteId }: { noteId: string }) {
-	const { note, folders, draft, loadError, saveState, saveError, update, flush, retry, remove } =
+	const { note, folderId, draft, loadError, saveState, saveError, update, flush, retry, remove } =
 		useNoteEditor(noteId);
+	const folders = useFolders();
 	const [preview, setPreview] = useState(false);
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
 	const [deleteError, setDeleteError] = useState("");
@@ -49,14 +51,6 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 
 	const pinLabel = draft.isPinned ? "Unpin note" : "Pin note";
 	const archiveLabel = draft.archived ? "Unarchive note" : "Archive note";
-	const folderOptions = folders
-		.map((folder) => ({
-			id: folder.id,
-			label: folderPath(folders, folder.id)
-				.map((part) => part.name)
-				.join(" / "),
-		}))
-		.sort((a, b) => a.label.localeCompare(b.label));
 
 	return (
 		<div className="content-wrap" onBlur={onBlur}>
@@ -97,19 +91,6 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 						)}
 					</div>
 					<div className="editor-toolbar-right">
-						<select
-							className="editor-select"
-							aria-label="Move note to folder"
-							value={draft.folderId ?? ""}
-							onChange={(event) => update({ folderId: event.target.value || null })}
-						>
-							<option value="">No folder</option>
-							{folderOptions.map(({ id, label }) => (
-								<option value={id} key={id}>
-									{label}
-								</option>
-							))}
-						</select>
 						<button
 							className="icon-button"
 							title={pinLabel}
@@ -144,6 +125,12 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 					</div>
 				)}
 
+				<div className="note-path" aria-label="Note location">
+					{[
+						...folderPath(folders, folderId).map((folder) => folder.name),
+						draft.title.trim() || "Untitled note",
+					].join(" / ")}
+				</div>
 				<article className="editor-paper">
 					<input
 						className="title-input"

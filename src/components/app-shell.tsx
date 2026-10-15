@@ -21,20 +21,23 @@ export function AppShell({ children, email }: { children: React.ReactNode; email
 
 	const currentFolderId = pathname === "/" ? searchParams.get("folder") : null;
 
-	const createNote = useCallback(async () => {
-		setCreatingNote(true);
-		try {
-			const note = await api<{ id: string }>("/api/notes", {
-				method: "POST",
-				body: currentFolderId ? { folderId: currentFolderId } : {},
-			});
-			router.push(`/notes/${note.id}`);
-		} catch (cause) {
-			setToast(errorText(cause, "The note could not be created."));
-		} finally {
-			setCreatingNote(false);
-		}
-	}, [router, currentFolderId]);
+	const createNote = useCallback(
+		async (targetFolderId: string | null = currentFolderId) => {
+			setCreatingNote(true);
+			try {
+				const note = await api<{ id: string }>("/api/notes", {
+					method: "POST",
+					body: targetFolderId ? { folderId: targetFolderId } : {},
+				});
+				router.push(`/notes/${note.id}`);
+			} catch (cause) {
+				setToast(errorText(cause, "The note could not be created."));
+			} finally {
+				setCreatingNote(false);
+			}
+		},
+		[router, currentFolderId],
+	);
 
 	// "n" and the empty-state button both create a note.
 	useEffect(() => {
@@ -79,7 +82,7 @@ export function AppShell({ children, email }: { children: React.ReactNode; email
 				drawerOpen={drawerOpen}
 				creatingNote={creatingNote}
 				onCloseDrawer={() => setDrawerOpen(false)}
-				onNewNote={() => void createNote()}
+				onNewNote={(folderId) => void createNote(folderId)}
 				onFoldersChanged={reload}
 				onError={setToast}
 			/>

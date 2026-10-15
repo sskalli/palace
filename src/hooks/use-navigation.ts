@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, errorText } from "@/lib/api-client";
 import type { FolderSummary, TagSummary, TreeNote } from "@/lib/client-types";
 
-/** Folders, tags and filed notes shown in the sidebar. Reloads on route change and when a note is saved. */
+/** Folders, tags and notes shown in the sidebar. Reloads on route change and when a note is saved. */
 export function useNavigation(pathname: string, onError: (message: string) => void) {
 	const [folders, setFolders] = useState<FolderSummary[]>([]);
 	const [tags, setTags] = useState<TagSummary[]>([]);
