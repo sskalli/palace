@@ -9,6 +9,7 @@ import { ContextMenu } from "@/components/context-menu";
 import { FolderDialogs, type FolderDialog } from "@/components/folder-dialogs";
 import { FolderTree } from "@/components/folder-tree";
 import { Modal } from "@/components/modal";
+import { version } from "../../package.json";
 import { api, errorText } from "@/lib/api-client";
 import { descendantIds, isSameOrDescendant } from "@/lib/folder-tree";
 import type { FolderSummary, TagSummary, TreeNote } from "@/lib/client-types";
@@ -137,7 +138,7 @@ export function Sidebar({
 				}}
 			>
 				<div className="brand">
-					<span className="brand-mark" aria-hidden="true">
+					<span className="brand-mark" title={`Palace v${version}`}>
 						🧠
 					</span>
 					<span className="brand-name">palace</span>
