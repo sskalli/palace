@@ -70,7 +70,6 @@ export function useNoteEditor(noteId: string) {
 				setNote(saved);
 				savedRevision.current = sentRevision;
 				notifyNavigationChanged();
-				if (snapshot.archived) router.push("/?view=archived");
 				if (revision.current === sentRevision) setSaveState("saved");
 			} catch (cause) {
 				setSaveState("failed");
@@ -84,7 +83,7 @@ export function useNoteEditor(noteId: string) {
 				}
 			}
 		};
-	}, [noteId, router, schedule]);
+	}, [noteId, schedule]);
 
 	useEffect(() => {
 		let live = true;
@@ -141,5 +140,14 @@ export function useNoteEditor(noteId: string) {
 
 	const retry = useCallback(() => void save.current(), []);
 
-	return { note, folders, draft, loadError, saveState, saveError, update, flush, retry };
+	/** Permanently deletes the (archived) note, discarding any pending autosave. Throws on failure. */
+	const remove = useCallback(async () => {
+		if (timer.current) clearTimeout(timer.current);
+		await api(`/api/notes/${noteId}/permanent`, { method: "DELETE", fallback: "The note could not be deleted." });
+		savedRevision.current = revision.current;
+		notifyNavigationChanged();
+		router.push("/?view=archived");
+	}, [noteId, router]);
+
+	return { note, folders, draft, loadError, saveState, saveError, update, flush, retry, remove };
 }

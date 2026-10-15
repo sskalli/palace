@@ -75,5 +75,5 @@ Run `npm run db:deploy` again after deploying each future schema migration, targ
 - Search uses case-insensitive title/body matching and is limited to recent results.
 - Ambiguous duplicate note titles remain unresolved wikilinks.
 - Autosave uses a last-successful-save-wins policy; simultaneous edits on different devices are not merged.
-- Archiving is reversible and there is no permanent-delete or import flow.
+- Archiving is reversible. Archived notes can be permanently deleted from the Archived view; there is no import flow.
 - V1 does not include boards/canvases, collaboration, offline sync, attachments, reminders, AI, plugins, or a native mobile app.

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 interface ModalProps {
 	title: string;
 	description?: string;
+	errorMessage?: string;
 	confirmLabel: string;
 	danger?: boolean;
 	input?: { label: string; initialValue?: string; placeholder?: string; maxLength?: number };
@@ -12,7 +13,16 @@ interface ModalProps {
 	onClose: () => void;
 }
 
-export function Modal({ title, description, confirmLabel, danger, input, onConfirm, onClose }: ModalProps) {
+export function Modal({
+	title,
+	description,
+	errorMessage,
+	confirmLabel,
+	danger,
+	input,
+	onConfirm,
+	onClose,
+}: ModalProps) {
 	const dialogRef = useRef<HTMLDialogElement>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [value, setValue] = useState(input?.initialValue ?? "");
@@ -53,6 +63,11 @@ export function Modal({ title, description, confirmLabel, danger, input, onConfi
 					{title}
 				</h2>
 				{description && <p className="modal-description">{description}</p>}
+				{errorMessage && (
+					<p className="message-error" role="alert">
+						{errorMessage}
+					</p>
+				)}
 				{input && (
 					<label className="modal-field">
 						<span>{input.label}</span>

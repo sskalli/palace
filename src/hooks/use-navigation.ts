@@ -2,21 +2,24 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, errorText } from "@/lib/api-client";
-import type { FolderSummary, TagSummary } from "@/lib/client-types";
+import type { FolderSummary, TagSummary, TreeNote } from "@/lib/client-types";
 
-/** Folders and tags shown in the sidebar. Reloads on route change and when a note is saved. */
+/** Folders, tags and filed notes shown in the sidebar. Reloads on route change and when a note is saved. */
 export function useNavigation(pathname: string, onError: (message: string) => void) {
 	const [folders, setFolders] = useState<FolderSummary[]>([]);
 	const [tags, setTags] = useState<TagSummary[]>([]);
+	const [treeNotes, setTreeNotes] = useState<TreeNote[]>([]);
 
 	const reload = useCallback(async () => {
 		try {
-			const [nextFolders, nextTags] = await Promise.all([
+			const [nextFolders, nextTags, nextNotes] = await Promise.all([
 				api<FolderSummary[]>("/api/folders"),
 				api<TagSummary[]>("/api/tags"),
+				api<TreeNote[]>("/api/notes/tree"),
 			]);
 			setFolders(nextFolders);
 			setTags(nextTags);
+			setTreeNotes(nextNotes);
 		} catch (cause) {
 			onError(errorText(cause, "Navigation could not be loaded."));
 		}
@@ -32,5 +35,5 @@ export function useNavigation(pathname: string, onError: (message: string) => vo
 		return () => window.removeEventListener("palace:navigation-changed", refresh);
 	}, [reload]);
 
-	return { folders, tags, reload };
+	return { folders, tags, treeNotes, reload };
 }

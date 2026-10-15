@@ -2,16 +2,22 @@
 
 import Link from "next/link";
 import { useState, type FocusEvent } from "react";
-import { PinIcon } from "@/components/icons";
+import { ArchiveIcon, PinIcon, TrashIcon, UnarchiveIcon } from "@/components/icons";
 import { MarkdownPreview } from "@/components/markdown-preview";
+import { Modal } from "@/components/modal";
+import { errorText } from "@/lib/api-client";
+import { folderPath } from "@/lib/folder-tree";
 import { TagEditor } from "@/components/tag-editor";
 import { useNoteEditor, type SaveState } from "@/hooks/use-note-editor";
 
 const SAVE_LABELS: Record<SaveState, string> = { saved: "Saved", saving: "Saving…", failed: "Save failed" };
 
 export function NoteEditor({ noteId }: { noteId: string }) {
-	const { note, folders, draft, loadError, saveState, saveError, update, flush, retry } = useNoteEditor(noteId);
+	const { note, folders, draft, loadError, saveState, saveError, update, flush, retry, remove } =
+		useNoteEditor(noteId);
 	const [preview, setPreview] = useState(false);
+	const [confirmingDelete, setConfirmingDelete] = useState(false);
+	const [deleteError, setDeleteError] = useState("");
 
 	if (loadError) {
 		return (
@@ -42,9 +48,38 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 	}
 
 	const pinLabel = draft.isPinned ? "Unpin note" : "Pin note";
+	const archiveLabel = draft.archived ? "Unarchive note" : "Archive note";
+	const folderOptions = folders
+		.map((folder) => ({
+			id: folder.id,
+			label: folderPath(folders, folder.id)
+				.map((part) => part.name)
+				.join(" / "),
+		}))
+		.sort((a, b) => a.label.localeCompare(b.label));
 
 	return (
 		<div className="content-wrap" onBlur={onBlur}>
+			{confirmingDelete && (
+				<Modal
+					title="Delete note permanently?"
+					description={`“${draft.title.trim() || "Untitled note"}” will be permanently deleted and cannot be recovered.`}
+					errorMessage={deleteError}
+					confirmLabel="Delete permanently"
+					danger
+					onConfirm={async () => {
+						try {
+							await remove();
+						} catch (cause) {
+							setDeleteError(errorText(cause, "The note could not be deleted."));
+						}
+					}}
+					onClose={() => {
+						setConfirmingDelete(false);
+						setDeleteError("");
+					}}
+				/>
+			)}
 			<div className="editor-wrap">
 				<div className="editor-toolbar">
 					<div className="editor-toolbar-left">
@@ -69,9 +104,9 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 							onChange={(event) => update({ folderId: event.target.value || null })}
 						>
 							<option value="">No folder</option>
-							{folders.map((folder) => (
-								<option value={folder.id} key={folder.id}>
-									{folder.name}
+							{folderOptions.map(({ id, label }) => (
+								<option value={id} key={id}>
+									{label}
 								</option>
 							))}
 						</select>
@@ -83,9 +118,24 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 						>
 							<PinIcon filled={draft.isPinned} />
 						</button>
-						<button className="text-button" onClick={() => update({ archived: !draft.archived })}>
-							{draft.archived ? "Unarchive" : "Archive"}
+						<button
+							className="icon-button"
+							title={archiveLabel}
+							aria-label={archiveLabel}
+							onClick={() => update({ archived: !draft.archived })}
+						>
+							{draft.archived ? <UnarchiveIcon /> : <ArchiveIcon />}
 						</button>
+						{draft.archived && (
+							<button
+								className="icon-button danger"
+								title="Delete permanently"
+								aria-label="Delete permanently"
+								onClick={() => setConfirmingDelete(true)}
+							>
+								<TrashIcon />
+							</button>
+						)}
 					</div>
 				</div>
 				{saveState === "failed" && saveError && (

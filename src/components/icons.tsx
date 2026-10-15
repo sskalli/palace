@@ -46,6 +46,25 @@ export const ArchiveIcon = (props: IconProps) => (
 	</Svg>
 );
 
+export const UnarchiveIcon = (props: IconProps) => (
+	<Svg {...props}>
+		<rect x="3" y="4" width="18" height="4" rx="1" />
+		<path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M12 17v-6M9 14l3-3 3 3" />
+	</Svg>
+);
+
+export const ChevronIcon = (props: IconProps) => (
+	<Svg {...props}>
+		<path d="m9 6 6 6-6 6" />
+	</Svg>
+);
+
+export const TrashIcon = (props: IconProps) => (
+	<Svg {...props}>
+		<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3" />
+	</Svg>
+);
+
 export const FolderIcon = (props: IconProps) => (
 	<Svg {...props}>
 		<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />

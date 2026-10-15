@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Sidebar } from "@/components/sidebar";
+import { FoldersProvider } from "@/components/folders-context";
 import { Topbar } from "@/components/topbar";
 import { useNavigation } from "@/hooks/use-navigation";
 import { api, errorText } from "@/lib/api-client";
@@ -16,19 +17,24 @@ export function AppShell({ children, email }: { children: React.ReactNode; email
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [creatingNote, setCreatingNote] = useState(false);
 	const [toast, setToast] = useState("");
-	const { folders, tags, reload } = useNavigation(pathname, setToast);
+	const { folders, tags, treeNotes, reload } = useNavigation(pathname, setToast);
+
+	const currentFolderId = pathname === "/" ? searchParams.get("folder") : null;
 
 	const createNote = useCallback(async () => {
 		setCreatingNote(true);
 		try {
-			const note = await api<{ id: string }>("/api/notes", { method: "POST", body: {} });
+			const note = await api<{ id: string }>("/api/notes", {
+				method: "POST",
+				body: currentFolderId ? { folderId: currentFolderId } : {},
+			});
 			router.push(`/notes/${note.id}`);
 		} catch (cause) {
 			setToast(errorText(cause, "The note could not be created."));
 		} finally {
 			setCreatingNote(false);
 		}
-	}, [router]);
+	}, [router, currentFolderId]);
 
 	// "n" and the empty-state button both create a note.
 	useEffect(() => {
@@ -69,6 +75,7 @@ export function AppShell({ children, email }: { children: React.ReactNode; email
 				email={email}
 				folders={folders}
 				tags={tags}
+				treeNotes={treeNotes}
 				drawerOpen={drawerOpen}
 				creatingNote={creatingNote}
 				onCloseDrawer={() => setDrawerOpen(false)}
@@ -78,7 +85,7 @@ export function AppShell({ children, email }: { children: React.ReactNode; email
 			/>
 			<main className="main-area">
 				<Topbar label={label} onOpenDrawer={() => setDrawerOpen(true)} />
-				{children}
+				<FoldersProvider value={folders}>{children}</FoldersProvider>
 				{toast && (
 					<div role="alert" className="toast-error">
 						{toast}

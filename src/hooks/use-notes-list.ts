@@ -34,6 +34,13 @@ export function useNotesList({ view, folderId, tag }: NotesFilter) {
 	const key = `${view}:${folderId ?? ""}:${tag ?? ""}`;
 	const [state, setState] = useState<ListState>({ key: "", notes: [], nextCursor: null, error: "" });
 	const [loadingMore, setLoadingMore] = useState(false);
+	const [refreshToken, setRefreshToken] = useState(0);
+
+	useEffect(() => {
+		const refresh = () => setRefreshToken((value) => value + 1);
+		window.addEventListener("palace:notes-changed", refresh);
+		return () => window.removeEventListener("palace:notes-changed", refresh);
+	}, []);
 
 	useEffect(() => {
 		let live = true;
@@ -53,7 +60,7 @@ export function useNotesList({ view, folderId, tag }: NotesFilter) {
 		return () => {
 			live = false;
 		};
-	}, [view, folderId, tag, key]);
+	}, [view, folderId, tag, key, refreshToken]);
 
 	const loadMore = useCallback(async () => {
 		if (!state.nextCursor || loadingMore) return;
@@ -78,6 +85,15 @@ export function useNotesList({ view, folderId, tag }: NotesFilter) {
 		}
 	}, [state.nextCursor, loadingMore, view, folderId, tag, key]);
 
+	const removeNote = useCallback(
+		(id: string) => {
+			setState((current) =>
+				current.key === key ? { ...current, notes: current.notes.filter((note) => note.id !== id) } : current,
+			);
+		},
+		[key],
+	);
+
 	const loading = state.key !== key;
 	return {
 		notes: loading ? [] : state.notes,
@@ -86,5 +102,6 @@ export function useNotesList({ view, folderId, tag }: NotesFilter) {
 		loading,
 		loadingMore,
 		loadMore,
+		removeNote,
 	};
 }

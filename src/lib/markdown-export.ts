@@ -2,7 +2,8 @@ export interface ExportNote {
 	id: string;
 	title: string;
 	contentMarkdown: string;
-	folderName: string | null;
+	/** Folder names from the top level down. */
+	folderPath: string[];
 	tags: string[];
 	createdAt: Date;
 	updatedAt: Date;
@@ -34,7 +35,7 @@ export function buildMarkdownExportEntries(notes: ExportNote[]): MarkdownExportE
 	return notes.map((note) => {
 		const title = note.title.trim() || "Untitled note";
 		const baseName = sanitizeExportSegment(title, "Untitled note");
-		const folder = note.folderName ? `${sanitizeExportSegment(note.folderName, "Folder")}/` : "";
+		const folder = note.folderPath.map((name) => `${sanitizeExportSegment(name, "Folder")}/`).join("");
 		const initialPath = `${folder}${baseName}.md`;
 		let path = initialPath;
 		const suffix = sanitizeExportSegment(note.id, "note");

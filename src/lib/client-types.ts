@@ -1,7 +1,19 @@
 export interface FolderSummary {
 	id: string;
 	name: string;
+	parentId: string | null;
 	_count?: { notes: number };
+}
+
+/** A filed note, as shown in the sidebar tree. */
+/** Drag & drop data type carrying a note id. */
+export const NOTE_DRAG_TYPE = "application/x-palace-note";
+
+export interface TreeNote {
+	id: string;
+	title: string;
+	folderId: string | null;
+	isPinned: boolean;
 }
 
 export interface TagSummary {

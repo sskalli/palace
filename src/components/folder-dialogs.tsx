@@ -5,7 +5,9 @@ import type { FolderSummary } from "@/lib/client-types";
 import { Modal } from "@/components/modal";
 
 export type FolderDialog =
-	{ kind: "create" } | { kind: "rename"; folder: FolderSummary } | { kind: "delete"; folder: FolderSummary };
+	| { kind: "create"; parent?: FolderSummary }
+	| { kind: "rename"; folder: FolderSummary }
+	| { kind: "delete"; folder: FolderSummary; subfolderCount: number };
 
 interface FolderDialogsProps {
 	dialog: FolderDialog | null;
@@ -37,12 +39,16 @@ export function FolderDialogs({ dialog, onClose, onChanged, onError, onDeleted }
 	if (dialog.kind === "create") {
 		return (
 			<Modal
-				title="New folder"
+				title={dialog.parent ? `New subfolder in “${dialog.parent.name}”` : "New folder"}
 				confirmLabel="Create"
 				input={{ ...nameInput, placeholder: "e.g. Projects" }}
 				onConfirm={(name) =>
 					run(
-						() => api("/api/folders", { method: "POST", body: { name } }),
+						() =>
+							api("/api/folders", {
+								method: "POST",
+								body: { name, parentId: dialog.parent?.id ?? null },
+							}),
 						"The folder could not be created.",
 					)
 				}
@@ -73,10 +79,16 @@ export function FolderDialogs({ dialog, onClose, onChanged, onError, onDeleted }
 		);
 	}
 
+	const { subfolderCount } = dialog;
+	const consequence =
+		subfolderCount > 0
+			? `“${folder.name}” and its ${subfolderCount} ${subfolderCount === 1 ? "subfolder" : "subfolders"} will be deleted. Their notes are kept and stay in All notes.`
+			: `“${folder.name}” will be deleted. Its notes are kept and stay in All notes.`;
+
 	return (
 		<Modal
 			title="Delete folder?"
-			description={`“${folder.name}” will be deleted. Its notes are kept and stay in All notes.`}
+			description={consequence}
 			confirmLabel="Delete"
 			danger
 			onConfirm={() =>
