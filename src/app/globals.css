@@ -164,6 +164,9 @@ textarea:focus-visible {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	margin-top: 0;
+}
+.folder-tree {
 	margin-top: 25px;
 }
 .nav-section-tags {
