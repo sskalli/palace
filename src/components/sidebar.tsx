@@ -21,7 +21,8 @@ interface SidebarProps {
 	drawerOpen: boolean;
 	creatingNote: boolean;
 	onCloseDrawer: () => void;
-	onNewNote: () => void;
+	/** Creates a note in the given folder (none when null); without an argument it goes in the folder being viewed. */
+	onNewNote: (folderId?: string | null) => void;
 	onFoldersChanged: () => Promise<void>;
 	onError: (message: string) => void;
 }
@@ -144,7 +145,11 @@ export function Sidebar({
 						×
 					</button>
 				</div>
-				<button className="primary-button new-note-button" onClick={onNewNote} disabled={creatingNote}>
+				<button
+					className="primary-button new-note-button"
+					onClick={() => onNewNote(null)}
+					disabled={creatingNote}
+				>
 					<PlusIcon />
 					<span className="nav-label">New note</span>
 				</button>
@@ -245,6 +250,7 @@ export function Sidebar({
 					anchor={menu.anchor}
 					onClose={() => setMenu(null)}
 					items={[
+						{ label: "New note", onSelect: () => onNewNote(menu.folder.id) },
 						{
 							label: "New subfolder",
 							onSelect: () => {

@@ -716,16 +716,6 @@ textarea:focus-visible {
 		opacity: 0.4;
 	}
 }
-.editor-select {
-	max-width: 180px;
-	min-height: 34px;
-	padding: 0 10px;
-	border: 1px solid var(--border-subtle);
-	border-radius: var(--radius-sm);
-	color: var(--text-secondary);
-	background: var(--bg-surface);
-	font-size: 12px;
-}
 .editor-paper {
 	padding: 32px 42px 42px;
 	border: 1px solid var(--border-subtle);
@@ -1516,8 +1506,7 @@ textarea:focus-visible {
 		.tree-toggle {
 			display: none;
 		}
-		.folder-row.nested,
-		.tree-note-row {
+		.folder-row.nested {
 			display: none;
 		}
 	}
@@ -1530,4 +1519,10 @@ textarea:focus-visible {
 }
 .section-empty p {
 	margin: 0;
+}
+.note-path {
+	margin-bottom: 10px;
+	color: var(--text-muted);
+	font-size: 12px;
+	overflow-wrap: anywhere;
 }

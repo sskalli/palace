@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, errorText, notifyNavigationChanged } from "@/lib/api-client";
-import type { FolderSummary, NoteDetail } from "@/lib/client-types";
+import type { NoteDetail } from "@/lib/client-types";
 
 export type SaveState = "saved" | "saving" | "failed";
 
@@ -11,7 +11,6 @@ export type SaveState = "saved" | "saving" | "failed";
 export interface NoteDraft {
 	title: string;
 	contentMarkdown: string;
-	folderId: string | null;
 	tags: string[];
 	isPinned: boolean;
 	archived: boolean;
@@ -23,7 +22,6 @@ function toDraft(note: NoteDetail): NoteDraft {
 	return {
 		title: note.title,
 		contentMarkdown: note.contentMarkdown,
-		folderId: note.folderId,
 		tags: note.tags.map(({ name }) => name),
 		isPinned: note.isPinned,
 		archived: Boolean(note.archivedAt),
@@ -34,7 +32,7 @@ function toDraft(note: NoteDetail): NoteDraft {
 export function useNoteEditor(noteId: string) {
 	const router = useRouter();
 	const [note, setNote] = useState<NoteDetail | null>(null);
-	const [folders, setFolders] = useState<FolderSummary[]>([]);
+	const [folderId, setFolderId] = useState<string | null>(null);
 	const [draft, setDraft] = useState<NoteDraft | null>(null);
 	const [loadError, setLoadError] = useState("");
 	const [saveState, setSaveState] = useState<SaveState>("saved");
@@ -68,6 +66,7 @@ export function useNoteEditor(noteId: string) {
 					fallback: "Your changes could not be saved.",
 				});
 				setNote(saved);
+				setFolderId(saved.folderId);
 				savedRevision.current = sentRevision;
 				notifyNavigationChanged();
 				if (revision.current === sentRevision) setSaveState("saved");
@@ -87,16 +86,13 @@ export function useNoteEditor(noteId: string) {
 
 	useEffect(() => {
 		let live = true;
-		Promise.all([
-			api<NoteDetail>(`/api/notes/${noteId}`, { fallback: "The note could not be loaded." }),
-			api<FolderSummary[]>("/api/folders"),
-		])
-			.then(([loadedNote, loadedFolders]) => {
+		api<NoteDetail>(`/api/notes/${noteId}`, { fallback: "The note could not be loaded." })
+			.then((loadedNote) => {
 				if (!live) return;
 				const loadedDraft = toDraft(loadedNote);
 				latest.current = loadedDraft;
 				setNote(loadedNote);
-				setFolders(loadedFolders);
+				setFolderId(loadedNote.folderId);
 				setDraft(loadedDraft);
 			})
 			.catch((cause: unknown) => {
@@ -106,6 +102,16 @@ export function useNoteEditor(noteId: string) {
 			live = false;
 			if (timer.current) clearTimeout(timer.current);
 		};
+	}, [noteId]);
+
+	// The note can be moved from the sidebar; the draft never carries the folder, so a save cannot undo the move.
+	useEffect(() => {
+		const refresh = () =>
+			void api<NoteDetail>(`/api/notes/${noteId}`)
+				.then((current) => setFolderId(current.folderId))
+				.catch(() => {});
+		window.addEventListener("palace:notes-changed", refresh);
+		return () => window.removeEventListener("palace:notes-changed", refresh);
 	}, [noteId]);
 
 	useEffect(() => {
@@ -149,5 +155,5 @@ export function useNoteEditor(noteId: string) {
 		router.push("/?view=archived");
 	}, [noteId, router]);
 
-	return { note, folders, draft, loadError, saveState, saveError, update, flush, retry, remove };
+	return { note, folderId, draft, loadError, saveState, saveError, update, flush, retry, remove };
 }

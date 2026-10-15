@@ -57,6 +57,7 @@ export function FolderTree({
 		}
 		return grouped;
 	}, [notes]);
+	const rootNotes = useMemo(() => notes.filter((note) => !note.folderId), [notes]);
 	const openByDefault = useMemo(() => {
 		const activeNoteFolder = notes.find((note) => note.id === activeNoteId)?.folderId ?? null;
 		return new Set(
@@ -123,6 +124,48 @@ export function FolderTree({
 		onOpenMenu(folder, new DOMRect(event.clientX, event.clientY, 0, 0));
 	}
 
+	function renderNote(note: TreeNote, depth: number) {
+		return (
+			<div
+				className={`folder-row tree-note-row${depth >= 0 ? " nested" : ""}${menuNoteId === note.id ? " menu-open" : ""}`}
+				style={{ "--depth": depth } as React.CSSProperties}
+				key={note.id}
+				draggable
+				onDragStart={(event) => {
+					event.stopPropagation();
+					event.dataTransfer.effectAllowed = "move";
+					event.dataTransfer.setData(NOTE_DRAG_TYPE, note.id);
+				}}
+				onDragEnd={endDrag}
+				onContextMenu={(event) => {
+					event.preventDefault();
+					onOpenNoteMenu(note, new DOMRect(event.clientX, event.clientY, 0, 0));
+				}}
+			>
+				<Link
+					className={`nav-link tree-note${activeNoteId === note.id ? " active" : ""}`}
+					href={`/notes/${note.id}`}
+				>
+					<span className="nav-icon">
+						<NotesIcon size={depth >= 0 ? 14 : undefined} />
+					</span>
+					<span className="nav-label">{note.title}</span>
+				</Link>
+				<div className="folder-tools">
+					<button
+						className="tiny-action"
+						aria-label={`Note options for ${note.title}`}
+						aria-haspopup="menu"
+						title="Note options"
+						onClick={(event) => onOpenNoteMenu(note, event.currentTarget.getBoundingClientRect())}
+					>
+						···
+					</button>
+				</div>
+			</div>
+		);
+	}
+
 	function renderBranch(node: FolderNode<FolderSummary>, depth: number) {
 		const open = isOpen(node.id);
 		const folderNotes = notesByFolder.get(node.id) ?? [];
@@ -186,47 +229,7 @@ export function FolderTree({
 				{open && (
 					<>
 						{node.children.map((child) => renderBranch(child, depth + 1))}
-						{folderNotes.map((note) => (
-							<div
-								className={`folder-row tree-note-row nested${menuNoteId === note.id ? " menu-open" : ""}`}
-								style={{ "--depth": depth } as React.CSSProperties}
-								key={note.id}
-								draggable
-								onDragStart={(event) => {
-									event.stopPropagation();
-									event.dataTransfer.effectAllowed = "move";
-									event.dataTransfer.setData(NOTE_DRAG_TYPE, note.id);
-								}}
-								onDragEnd={endDrag}
-								onContextMenu={(event) => {
-									event.preventDefault();
-									onOpenNoteMenu(note, new DOMRect(event.clientX, event.clientY, 0, 0));
-								}}
-							>
-								<Link
-									className={`nav-link tree-note${activeNoteId === note.id ? " active" : ""}`}
-									href={`/notes/${note.id}`}
-								>
-									<span className="nav-icon">
-										<NotesIcon size={14} />
-									</span>
-									<span className="nav-label">{note.title}</span>
-								</Link>
-								<div className="folder-tools">
-									<button
-										className="tiny-action"
-										aria-label={`Note options for ${note.title}`}
-										aria-haspopup="menu"
-										title="Note options"
-										onClick={(event) =>
-											onOpenNoteMenu(note, event.currentTarget.getBoundingClientRect())
-										}
-									>
-										···
-									</button>
-								</div>
-							</div>
-						))}
+						{folderNotes.map((note) => renderNote(note, depth))}
 					</>
 				)}
 			</div>
@@ -247,7 +250,10 @@ export function FolderTree({
 			{header}
 			<nav className="nav-list">
 				{tree.map((node) => renderBranch(node, 0))}
-				{folders.length === 0 && <span className="muted-text folder-empty">No folders yet</span>}
+				{rootNotes.map((note) => renderNote(note, -1))}
+				{folders.length === 0 && rootNotes.length === 0 && (
+					<span className="muted-text folder-empty">No folders yet</span>
+				)}
 			</nav>
 		</div>
 	);
