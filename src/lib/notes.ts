@@ -100,6 +100,26 @@ export function serializeNote<
 	};
 }
 
+/** Resolves the note's [[wikilinks]] against current titles, so notes created or renamed after the last save still link. */
+export async function resolveLiveWikilinks<T extends { contentMarkdown: string; wikilinks: unknown }>(
+	userId: string,
+	note: T,
+) {
+	const targets = parseWikilinkTargets(note.contentMarkdown);
+	if (!targets.length) return { ...note, wikilinks: [] };
+	const candidates = await prisma.note.findMany({
+		where: { userId, archivedAt: null, title: { in: targets } },
+		select: { id: true, userId: true, title: true, archivedAt: true },
+	});
+	const titles = new Map(candidates.map((candidate) => [candidate.id, candidate.title]));
+	const wikilinks = resolveWikilinkTargets(userId, targets, candidates).map(({ rawTargetTitle, targetNoteId }) => ({
+		rawTargetTitle,
+		targetNoteId,
+		targetTitle: targetNoteId ? (titles.get(targetNoteId) ?? null) : null,
+	}));
+	return { ...note, wikilinks };
+}
+
 export interface NoteListFilter {
 	view: "all" | "pinned" | "archived";
 	folderId?: string;
