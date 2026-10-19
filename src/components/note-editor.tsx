@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type FocusEvent } from "react";
 import { ArchiveIcon, EyeIcon, ExpandIcon, ShrinkIcon, PenIcon, PinIcon, TrashIcon, UnarchiveIcon } from "@/components/icons";
+import { LiveMarkdownEditor } from "@/components/live-markdown-editor";
 import { MarkdownPreview } from "@/components/markdown-preview";
 import { Modal } from "@/components/modal";
 import { errorText } from "@/lib/api-client";
@@ -170,12 +171,12 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 					{preview ? (
 						<MarkdownPreview content={draft.contentMarkdown} wikilinks={note.wikilinks} />
 					) : (
-						<textarea
-							className="markdown-textarea"
+						<LiveMarkdownEditor
 							value={draft.contentMarkdown}
-							onChange={(event) => update({ contentMarkdown: event.target.value })}
-							placeholder="Start with a thought…&#10;&#10;Write in Markdown. Link a note with [[its title]]."
-							aria-label="Markdown note content"
+							onChange={(contentMarkdown) => update({ contentMarkdown })}
+							wikilinks={note.wikilinks}
+							placeholder={"Start with a thought…\n\nWrite in Markdown. Link a note with [[its title]]."}
+							label="Markdown note content"
 							maxLength={100_000}
 						/>
 					)}
