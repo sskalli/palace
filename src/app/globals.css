@@ -776,12 +776,52 @@ textarea:focus-visible {
 	outline: none;
 	color: var(--text-primary);
 	background: transparent;
-	font: 14.5px/1.8 var(--font-body);
+	font: 13.5px/1.8 var(--font-body);
+}
+.markdown-editor {
+	min-height: 48vh;
+	color: var(--text-primary);
+	font: 13.5px/1.8 var(--font-body);
+}
+.markdown-editor .cm-editor {
+	min-height: 48vh;
+	background: transparent;
+}
+.markdown-editor .cm-editor.cm-focused {
+	outline: none;
+}
+.markdown-editor .cm-scroller {
+	font: inherit;
+	min-height: 48vh;
+}
+.markdown-editor .cm-content {
+	padding: 0;
+	caret-color: var(--text-primary);
+}
+.markdown-editor .cm-line {
+	padding: 0;
+}
+.markdown-editor .cm-placeholder {
+	color: var(--text-muted);
+}
+.markdown-editor .cm-rendered-block {
+	min-height: 0;
+	cursor: text;
+}
+.markdown-editor .cm-rendered-block > :first-child {
+	margin-top: 0;
+}
+.markdown-editor .cm-rendered-block > :last-child {
+	margin-bottom: 0;
+}
+.markdown-editor .cm-inline-code {
+	border-radius: 4px;
+	background: var(--surface-hover, rgba(127, 127, 127, 0.15));
 }
 .preview-content {
 	min-height: 42vh;
 	color: var(--text-primary);
-	font: 14.5px/1.8 var(--font-body);
+	font: 13.5px/1.8 var(--font-body);
 	overflow-wrap: anywhere;
 }
 .preview-content h1,
@@ -1491,9 +1531,12 @@ textarea:focus-visible {
 	.title-input {
 		font-size: 28px;
 	}
-	.markdown-textarea {
+	.markdown-textarea,
+	.markdown-editor,
+	.markdown-editor .cm-editor,
+	.markdown-editor .cm-scroller {
 		min-height: 53vh;
-		font-size: 14px;
+		font-size: 13px;
 	}
 	.auth-page {
 		grid-template-columns: 1fr;

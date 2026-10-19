@@ -10,9 +10,9 @@ interface MarkdownPreviewProps {
 	wikilinks: NoteDetail["wikilinks"];
 }
 
-export function MarkdownPreview({ content, wikilinks }: MarkdownPreviewProps) {
+export function convertWikilinks(content: string, wikilinks: NoteDetail["wikilinks"]): string {
 	const linksByTitle = new Map(wikilinks.map((link) => [link.rawTargetTitle, link]));
-	const converted = content.replace(/\[\[([^\]\r\n]+)\]\]/g, (_match, raw: string) => {
+	return content.replace(/\[\[([^\]\r\n]+)\]\]/g, (_match, raw: string) => {
 		const target = raw.trim();
 		const resolved = linksByTitle.get(target);
 		if (!target) return "\\[\\[\\]\\]";
@@ -22,6 +22,10 @@ export function MarkdownPreview({ content, wikilinks }: MarkdownPreviewProps) {
 		const label = target.replace(/([\\[\]])/g, "\\$1");
 		return `[${label}](/notes/${encodeURIComponent(resolved.targetNoteId)})`;
 	});
+}
+
+export function MarkdownPreview({ content, wikilinks }: MarkdownPreviewProps) {
+	const converted = convertWikilinks(content, wikilinks);
 
 	return (
 		<div className="preview-content">
