@@ -7,7 +7,7 @@ const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], var
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono" });
 
 export const metadata: Metadata = {
-	title: "Palace",
+	title: { default: "Palace", template: "%s · Palace" },
 	description: "A calm, Markdown-first space for your notes.",
 };
 
