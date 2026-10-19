@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FocusEvent } from "react";
-import { ArchiveIcon, EyeIcon, PenIcon, PinIcon, TrashIcon, UnarchiveIcon } from "@/components/icons";
+import { useEffect, useState, type FocusEvent } from "react";
+import { ArchiveIcon, EyeIcon, ExpandIcon, ShrinkIcon, PenIcon, PinIcon, TrashIcon, UnarchiveIcon } from "@/components/icons";
 import { MarkdownPreview } from "@/components/markdown-preview";
 import { Modal } from "@/components/modal";
 import { errorText } from "@/lib/api-client";
@@ -18,6 +18,11 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 		useNoteEditor(noteId);
 	const folders = useFolders();
 	const [preview, setPreview] = useState(false);
+	const [wide, setWide] = useState(false);
+	const pageTitle = draft?.title.trim() || "Untitled note";
+	useEffect(() => {
+		if (draft) document.title = `${pageTitle} · Palace`;
+	}, [draft, pageTitle]);
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
 	const [deleteError, setDeleteError] = useState("");
 
@@ -50,6 +55,7 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 	}
 
 	const previewLabel = preview ? "Back to writing" : "Preview";
+	const widthLabel = wide ? "Narrow editor" : "Wide editor";
 	const pinLabel = draft.isPinned ? "Unpin note" : "Pin note";
 	const archiveLabel = draft.archived ? "Unarchive note" : "Archive note";
 
@@ -75,7 +81,7 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 					}}
 				/>
 			)}
-			<div className="editor-wrap">
+			<div className={`editor-wrap${wide ? " wide" : ""}`}>
 				<div className="editor-toolbar">
 					<div className="editor-toolbar-left">
 						<Link className="text-button" href={draft.archived ? "/?view=archived" : "/"}>
@@ -92,6 +98,15 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 						)}
 					</div>
 					<div className="editor-toolbar-right">
+						<button
+							className="icon-button"
+							title={widthLabel}
+							aria-label={widthLabel}
+							aria-pressed={wide}
+							onClick={() => setWide((value) => !value)}
+						>
+							{wide ? <ShrinkIcon /> : <ExpandIcon />}
+						</button>
 						<button
 							className="icon-button"
 							title={previewLabel}

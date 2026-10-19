@@ -1,7 +1,22 @@
+import type { Metadata } from "next";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 import { NotesPage } from "@/components/notes-page";
 
 interface PageProps {
 	searchParams: Promise<{ view?: string; folder?: string; tag?: string }>;
+}
+
+export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
+	const { folder: id } = await searchParams;
+	if (!id) return {};
+	const session = await auth();
+	if (!session?.user?.id) return {};
+	const folder = await prisma.folder.findFirst({
+		where: { id, userId: session.user.id },
+		select: { name: true },
+	});
+	return folder ? { title: folder.name } : {};
 }
 
 export default async function HomePage({ searchParams }: PageProps) {
