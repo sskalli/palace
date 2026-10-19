@@ -8,8 +8,6 @@ import { Topbar } from "@/components/topbar";
 import { useNavigation } from "@/hooks/use-navigation";
 import { api, errorText, notifyNavigationChanged } from "@/lib/api-client";
 
-const TEXT_FIELDS = ["INPUT", "TEXTAREA", "SELECT"];
-
 export function AppShell({ children, email }: { children: React.ReactNode; email: string }) {
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
@@ -41,19 +39,11 @@ export function AppShell({ children, email }: { children: React.ReactNode; email
 		[router, currentFolderId],
 	);
 
-	// "n" and the empty-state button both create a note.
+	// The empty-state button asks for a new note through this event.
 	useEffect(() => {
-		function onKeyDown(event: KeyboardEvent) {
-			if (event.metaKey || event.ctrlKey || event.key.toLowerCase() !== "n") return;
-			if (event.target instanceof HTMLElement && TEXT_FIELDS.includes(event.target.tagName)) return;
-			event.preventDefault();
-			void createNote();
-		}
 		const onRequest = () => void createNote();
-		window.addEventListener("keydown", onKeyDown);
 		window.addEventListener("palace:new-note", onRequest);
 		return () => {
-			window.removeEventListener("keydown", onKeyDown);
 			window.removeEventListener("palace:new-note", onRequest);
 		};
 	}, [createNote]);
