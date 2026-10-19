@@ -1,6 +1,13 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { makePreview, noteDetailInclude, refreshNoteLinks, replaceNoteTags, serializeNote } from "@/lib/notes";
+import {
+	makePreview,
+	resolveLiveWikilinks,
+	noteDetailInclude,
+	refreshNoteLinks,
+	replaceNoteTags,
+	serializeNote,
+} from "@/lib/notes";
 import { getAuthenticatedUserId, jsonError, parseJson } from "@/lib/http";
 import { noteUpdateSchema, recordIdSchema } from "@/lib/validation";
 
@@ -20,7 +27,9 @@ export async function GET(_request: Request, context: RouteContext) {
 			where: { id, userId },
 			include: noteDetailInclude(userId),
 		});
-		return note ? Response.json(serializeNote(note)) : jsonError("Note not found.", 404);
+		return note
+			? Response.json(await resolveLiveWikilinks(userId, serializeNote(note)))
+			: jsonError("Note not found.", 404);
 	} catch (error) {
 		console.error("Note fetch failed", error);
 		return jsonError("The note could not be loaded.", 500);
@@ -53,7 +62,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 		// Moves, pins and archives touch one row, so they skip the transaction and the pre-read.
 		if (data.contentMarkdown === undefined && data.tags === undefined) {
 			const note = await prisma.note.update({ where: { id, userId }, data: updateData, include });
-			return Response.json(serializeNote(note));
+			return Response.json(await resolveLiveWikilinks(userId, serializeNote(note)));
 		}
 
 		const note = await prisma.$transaction(async (transaction) => {
@@ -77,7 +86,9 @@ export async function PATCH(request: Request, context: RouteContext) {
 			return transaction.note.update({ where: { id, userId }, data: updateData, include });
 		});
 
-		return note ? Response.json(serializeNote(note)) : jsonError("Note not found.", 404);
+		return note
+			? Response.json(await resolveLiveWikilinks(userId, serializeNote(note)))
+			: jsonError("Note not found.", 404);
 	} catch (error) {
 		if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
 			// The update matched nothing: either the note or the target folder is not the user's.
