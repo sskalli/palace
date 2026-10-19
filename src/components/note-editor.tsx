@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FocusEvent } from "react";
+import { useEffect, useState, type FocusEvent } from "react";
 import { ArchiveIcon, EyeIcon, PenIcon, PinIcon, TrashIcon, UnarchiveIcon } from "@/components/icons";
 import { MarkdownPreview } from "@/components/markdown-preview";
 import { Modal } from "@/components/modal";
@@ -18,6 +18,10 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 		useNoteEditor(noteId);
 	const folders = useFolders();
 	const [preview, setPreview] = useState(false);
+	const pageTitle = draft?.title.trim() || "Untitled note";
+	useEffect(() => {
+		if (draft) document.title = `${pageTitle} · Palace`;
+	}, [draft, pageTitle]);
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
 	const [deleteError, setDeleteError] = useState("");
 
