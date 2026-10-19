@@ -1,7 +1,7 @@
 import { ensureSyntaxTree } from "@codemirror/language";
 import type { EditorState, SelectionRange } from "@codemirror/state";
 
-export type BlockKind = "table" | "list" | "code" | "heading" | "rule";
+export type BlockKind = "table" | "code" | "heading" | "rule";
 
 export interface LiveBlock {
 	kind: BlockKind;
@@ -42,8 +42,6 @@ const INLINE_STYLES: Record<string, { className: string; marks: string[] }> = {
 
 const BLOCK_NODES: Record<string, BlockKind> = {
 	Table: "table",
-	BulletList: "list",
-	OrderedList: "list",
 	FencedCode: "code",
 	HorizontalRule: "rule",
 	SetextHeading1: "heading",
@@ -66,7 +64,7 @@ export function rangeTouches(selection: readonly SelectionRange[], from: number,
 	);
 }
 
-/** Collects top-level tables, outermost lists, closed fenced code blocks, headings and rules, plus inline code spans. */
+/** Collects top-level tables, closed fenced code blocks, headings and rules, plus inline code spans. */
 export function collectLiveSyntax(state: EditorState): { blocks: LiveBlock[]; inlineCode: InlineCodeSpan[]; inline: InlineSpan[]; quotes: QuoteBlock[] } {
 	const blocks: LiveBlock[] = [];
 	const inlineCode: InlineCodeSpan[] = [];
