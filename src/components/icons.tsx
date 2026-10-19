@@ -108,3 +108,15 @@ export const SearchIcon = (props: IconProps) => (
 		<path d="m20 20-4.5-4.5" />
 	</Svg>
 );
+
+export const ExpandIcon = (props: IconProps) => (
+	<Svg {...props}>
+		<path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4" />
+	</Svg>
+);
+
+export const ShrinkIcon = (props: IconProps) => (
+	<Svg {...props}>
+		<path d="M3 12h7M21 12h-7M7 8l3 4-3 4M17 8l-3 4 3 4" />
+	</Svg>
+);

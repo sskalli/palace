@@ -24,6 +24,7 @@ export function AppShell({ children, email }: { children: React.ReactNode; email
 	const createNote = useCallback(
 		async (targetFolderId: string | null = currentFolderId) => {
 			setCreatingNote(true);
+			setDrawerOpen(false);
 			try {
 				const note = await api<{ id: string }>("/api/notes", {
 					method: "POST",

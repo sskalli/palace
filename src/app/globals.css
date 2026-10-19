@@ -644,6 +644,12 @@ textarea:focus-visible {
 	max-width: 860px;
 	margin: 0 auto;
 }
+.content-wrap:has(> .editor-wrap.wide) {
+	width: min(100%, 2200px);
+}
+.editor-wrap.wide {
+	max-width: none;
+}
 .editor-toolbar {
 	display: flex;
 	align-items: center;
