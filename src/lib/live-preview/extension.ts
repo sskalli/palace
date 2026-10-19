@@ -39,19 +39,6 @@ function targetOffset(view: EditorView, from: number, to: number, kind: BlockKin
 				return lineStart + found.index + found[0].trimEnd().length;
 			}
 		}
-	} else if (kind === "list") {
-		const item = target.closest("li");
-		const items = [...dom.querySelectorAll("li")];
-		const index = item ? items.indexOf(item) : -1;
-		const starts: number[] = [];
-		syntaxTree(view.state).iterate({
-			from,
-			to,
-			enter(node) {
-				if (node.name === "ListItem") starts.push(node.from);
-			},
-		});
-		if (index >= 0 && starts[index] !== undefined) line = doc.lineAt(starts[index]).number;
 	} else if (kind === "code") {
 		const rect = dom.getBoundingClientRect();
 		const fraction = rect.height ? Math.min(Math.max((event.clientY - rect.top) / rect.height, 0), 0.999) : 0;

@@ -73,38 +73,14 @@ describe("tables", () => {
 });
 
 describe("lists", () => {
-	const doc = `${LIST}\n\nmiddle\n\n- other one\n- other two\n\n1. first\n2. second`;
-	const make = (text: string) => makeAt(text, text.indexOf("middle"));
+	const doc = `${LIST}\n\n1. first\n2. second\n\n* star`;
 
-	it("reveals the whole enclosing list from any item, including nested ones", () => {
-		const base = make(doc);
-		expect(widgets(base)).toHaveLength(3);
-		for (const needle of ["Palace", "Improve", "[x]", "Portfolio"]) {
-			const state = withSelection(base, at(base, needle, 1));
-			const remaining = widgets(state);
-			expect(remaining).toHaveLength(2);
-			expect(remaining.every((w) => w.from > LIST.length)).toBe(true);
+	it("are never rendered as blocks and keep their text", () => {
+		for (const pos of [0, doc.indexOf("Improve"), doc.indexOf("first"), doc.length]) {
+			const state = make(doc, pos);
+			expect(widgets(state)).toEqual([]);
+			expect(state.doc.toString()).toBe(doc);
 		}
-	});
-
-	it("does not activate adjacent separate lists together", () => {
-		const base = make(doc);
-		const state = withSelection(base, at(base, "other one", 2));
-		expect(widgets(state)).toHaveLength(2);
-		expect(widgets(state).some((w) => w.from === at(base, "- other one"))).toBe(false);
-	});
-
-	it("keeps a loose list with blank lines as a single block", () => {
-		const loose = "- one\n\n- two\n\n  continued\n\n- three";
-		const state = makeAt(`${loose}\n\nafter`, loose.length + 2);
-		expect(widgets(state)).toEqual([{ from: 0, to: loose.length }]);
-		expect(widgets(withSelection(state, at(state, "continued")))).toEqual([]);
-	});
-
-	it("never alters list text when presentation changes", () => {
-		const base = make(doc);
-		const moved = withSelection(base, at(base, "[ ]"));
-		expect(moved.doc.toString()).toBe(doc);
 	});
 });
 
@@ -158,17 +134,17 @@ describe("inline code", () => {
 		const state = withSelection(make(doc), at(make(doc), "code", 1));
 		expect(hiddenMarks(withSelection(state, doc.length))).toHaveLength(4);
 		const listDoc = "- item `x`\n\nplain";
-		expect(hiddenMarks(make(listDoc, 3))).toEqual([]);
+		expect(hiddenMarks(make(listDoc, listDoc.length))).toEqual(["`", "`"]);
 	});
 });
 
 describe("selection and integrity", () => {
-	const doc = `${TABLE}\n\ntext\n\n${CODE}\n\n- a\n- b`;
+	const doc = `${TABLE}\n\ntext\n\n${CODE}\n\n---`;
 
 	it("reveals every intersected block for multi-block selections", () => {
 		const base = make(doc);
 		const state = withSelection(base, at(base, "Notes"), at(base, "console"));
-		expect(widgets(state)).toEqual([{ from: at(base, "- a"), to: doc.length }]);
+		expect(widgets(state)).toEqual([{ from: doc.lastIndexOf("---"), to: doc.length }]);
 	});
 
 	it("does not activate a block when a selection only ends at its boundary", () => {
@@ -271,9 +247,8 @@ describe("inline formatting and quotes", () => {
 		expect(hidden(make(doc, doc.indexOf("quoted") + 1))).not.toContain("> ");
 	});
 
-	it("renders `*` lists as blocks too", () => {
-		expect(widgets(make(doc, 0))).toHaveLength(1);
-		expect(widgets(make(doc, doc.indexOf("list")))).toHaveLength(0);
+	it("leaves lists as plain source", () => {
+		expect(widgets(make(doc, 0))).toEqual([]);
 	});
 });
 
