@@ -779,6 +779,8 @@ textarea:focus-visible {
 	font: 13.5px/1.8 var(--font-body);
 }
 .markdown-editor {
+	min-width: 0;
+	max-width: 100%;
 	min-height: 48vh;
 	color: var(--text-primary);
 	font: 13.5px/1.8 var(--font-body);
@@ -791,10 +793,14 @@ textarea:focus-visible {
 	outline: none;
 }
 .markdown-editor .cm-scroller {
+	overflow-x: hidden;
 	font: inherit;
 	min-height: 48vh;
 }
 .markdown-editor .cm-content {
+	min-width: 0;
+	overflow-wrap: anywhere;
+	word-break: break-word;
 	padding: 0;
 	caret-color: var(--text-primary);
 }
@@ -849,8 +855,24 @@ textarea:focus-visible {
 .preview-content ol {
 	padding-left: 24px;
 }
+.preview-content ul {
+	list-style: disc;
+}
+.preview-content ul ul {
+	list-style: circle;
+}
+.preview-content ol {
+	list-style: decimal;
+}
 .preview-content li {
 	padding-left: 3px;
+}
+.preview-content li.task-list-item {
+	list-style: none;
+}
+.preview-content ul.contains-task-list {
+	list-style: none;
+	padding-left: 4px;
 }
 .preview-content blockquote {
 	margin: 1em 0;

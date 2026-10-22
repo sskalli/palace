@@ -11,6 +11,35 @@ const plainRenderer: BlockRenderer = (container, source) => {
 	return () => {};
 };
 
+export type LinkTarget = { kind: "wiki"; title: string } | { kind: "url"; href: string };
+
+/** Finds the `[[wikilink]]` or `[text](url)` covering `offset` in a single line of source. */
+export function findLinkAt(text: string, offset: number): LinkTarget | null {
+	for (const m of text.matchAll(/\[\[([^\]\r\n]+)\]\]/g)) {
+		if (offset >= m.index && offset <= m.index + m[0].length) return { kind: "wiki", title: m[1].trim() };
+	}
+	for (const m of text.matchAll(/\[[^\]\r\n]*\]\(\s*<?([^)\s>]+)>?[^)\r\n]*\)/g)) {
+		if (offset >= m.index && offset <= m.index + m[0].length) return { kind: "url", href: m[1] };
+	}
+	return null;
+}
+
+/** Ctrl/Cmd+click on a link in the editable source opens it via `open`. */
+export function linkClickHandler(open: (target: LinkTarget) => boolean) {
+	return EditorView.domEventHandlers({
+		mousedown(event, view) {
+			if (event.button !== 0 || !(event.ctrlKey || event.metaKey)) return false;
+			const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+			if (pos === null) return false;
+			const line = view.state.doc.lineAt(pos);
+			const target = findLinkAt(line.text, pos - line.from);
+			if (!target || !open(target)) return false;
+			event.preventDefault();
+			return true;
+		},
+	});
+}
+
 export const blockRenderer = Facet.define<BlockRenderer, BlockRenderer>({
 	combine: (values) => values[0] ?? plainRenderer,
 });
@@ -69,6 +98,12 @@ class RenderedBlockWidget extends WidgetType {
 		dom.addEventListener("mousedown", (event) => {
 			if (event.button !== 0) return;
 			event.preventDefault();
+			const anchor = event.target instanceof Element ? event.target.closest("a") : null;
+			if (anchor && (event.ctrlKey || event.metaKey)) {
+				const href = anchor.getAttribute("href");
+				if (href) window.open(href, "_blank", "noopener");
+				return;
+			}
 			const start = view.posAtDOM(dom);
 			const pos = targetOffset(view, start, start + this.source.length, this.kind, dom, event);
 			view.dispatch({ selection: EditorSelection.cursor(pos), scrollIntoView: false });
@@ -153,7 +188,7 @@ export const livePreviewTheme = EditorView.baseTheme({
 	".cm-em": { fontStyle: "italic" },
 	".cm-strong": { fontWeight: "700" },
 	".cm-strike": { textDecoration: "line-through" },
-	".cm-link": { color: "var(--accent, #4f7cff)", textDecoration: "underline" },
+	".cm-link": { cursor: "text", color: "var(--accent, #4f7cff)", textDecoration: "underline" },
 	".cm-quote-line": { borderLeft: "3px solid var(--border-subtle, #8884)", paddingLeft: "12px !important" },
 	".cm-inline-code": { fontFamily: "var(--font-mono, ui-monospace, monospace)", fontSize: "0.92em" },
 });
