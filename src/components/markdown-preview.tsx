@@ -3,6 +3,7 @@
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { normalizeHref } from "@/lib/urls";
 import type { NoteDetail } from "@/lib/client-types";
 
 interface MarkdownPreviewProps {
@@ -36,7 +37,7 @@ export function MarkdownPreview({ content, wikilinks }: MarkdownPreviewProps) {
 						href?.startsWith("/notes/") ? (
 							<Link href={href}>{children}</Link>
 						) : (
-							<a href={href} target="_blank" rel="noreferrer">
+							<a href={href ? (normalizeHref(href) ?? undefined) : undefined} target="_blank" rel="noreferrer">
 								{children}
 							</a>
 						),

@@ -9,8 +9,9 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView, keymap, placeholder as placeholderExtension } from "@codemirror/view";
 import { convertWikilinks } from "@/components/markdown-preview";
+import { normalizeHref } from "@/lib/urls";
 import type { NoteDetail } from "@/lib/client-types";
-import { blockRenderer, livePreviewField, livePreviewKeymap, livePreviewTheme, type BlockRenderer } from "@/lib/live-preview/extension";
+import { blockRenderer, linkClickHandler, livePreviewField, livePreviewKeymap, livePreviewTheme, type BlockRenderer } from "@/lib/live-preview/extension";
 
 interface LiveMarkdownEditorProps {
 	value: string;
@@ -29,8 +30,11 @@ export function LiveMarkdownEditor({ value, onChange, wikilinks, placeholder, ma
 	const initialValue = useRef(value);
 	const rendererRef = useRef<BlockRenderer | null>(null);
 
+	const wikilinksRef = useRef(wikilinks);
+
 	useEffect(() => {
 		onChangeRef.current = onChange;
+		wikilinksRef.current = wikilinks;
 	});
 
 	const renderer = useMemo<BlockRenderer>(
@@ -38,7 +42,13 @@ export function LiveMarkdownEditor({ value, onChange, wikilinks, placeholder, ma
 			container.innerHTML = renderToStaticMarkup(
 				<ReactMarkdown
 					remarkPlugins={[remarkGfm]}
-					components={{ a: ({ children }) => <span className="cm-rendered-link">{children}</span> }}
+					components={{
+						a: ({ href, children }) => (
+							<a className="cm-rendered-link" href={href ? (normalizeHref(href) ?? undefined) : undefined}>
+								{children}
+							</a>
+						),
+					}}
 				>
 					{convertWikilinks(source, wikilinks)}
 				</ReactMarkdown>,
@@ -68,6 +78,18 @@ export function LiveMarkdownEditor({ value, onChange, wikilinks, placeholder, ma
 					rendererCompartment.current.of(blockRenderer.of(rendererRef.current ?? (() => () => {}))),
 					livePreviewField,
 					livePreviewKeymap,
+					linkClickHandler((target) => {
+						let href: string | null = null;
+						if (target.kind === "wiki") {
+							const id = wikilinksRef.current.find((l) => l.rawTargetTitle === target.title)?.targetNoteId;
+							href = id ? `/notes/${encodeURIComponent(id)}` : null;
+						} else {
+							href = normalizeHref(target.href);
+						}
+						if (!href) return false;
+						window.open(href, "_blank", "noopener");
+						return true;
+					}),
 					livePreviewTheme,
 					EditorView.updateListener.of((update) => {
 						if (update.docChanged) onChangeRef.current(update.state.doc.toString());
