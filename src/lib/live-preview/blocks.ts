@@ -93,7 +93,7 @@ export function collectLiveSyntax(state: EditorState): { blocks: LiveBlock[]; in
 			}
 			if (node.name === "Link") {
 				const marks = node.node.getChildren("LinkMark");
-				if (marks.length >= 2) {
+				if (marks.length >= 2 && node.node.getChild("URL")) {
 					const hide = [
 						{ from: marks[0].from, to: marks[0].to },
 						{ from: marks[1].from, to: node.to },
@@ -120,5 +120,23 @@ export function collectLiveSyntax(state: EditorState): { blocks: LiveBlock[]; in
 			}
 		},
 	});
+
+	const covered = [...blocks, ...inlineCode];
+	const text = state.doc.toString();
+	for (const match of text.matchAll(/\[\[([^\]\r\n]+)\]\]/g)) {
+		const from = match.index;
+		const to = from + match[0].length;
+		if (covered.some((c) => from < c.to && to > c.from)) continue;
+		inline.push({
+			from,
+			to,
+			className: "cm-link",
+			hide: [
+				{ from, to: from + 2 },
+				{ from: to - 2, to },
+			],
+			active: rangeTouches(selection, from, to),
+		});
+	}
 	return { blocks, inlineCode, inline, quotes };
 }
