@@ -1,4 +1,5 @@
 export interface FolderSummary {
+	pending?: boolean;
 	id: string;
 	name: string;
 	parentId: string | null;
@@ -10,6 +11,7 @@ export interface FolderSummary {
 export const NOTE_DRAG_TYPE = "application/x-palace-note";
 
 export interface TreeNote {
+	pending?: boolean;
 	id: string;
 	title: string;
 	folderId: string | null;
@@ -33,6 +35,9 @@ export interface NoteSummary {
 }
 
 export interface NoteDetail {
+	referencesLoaded?: boolean;
+	referencesError?: boolean;
+	backlinksLimited?: boolean;
 	id: string;
 	title: string;
 	contentMarkdown: string;

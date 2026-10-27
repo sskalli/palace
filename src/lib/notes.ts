@@ -59,16 +59,15 @@ export async function refreshNoteLinks(
 	}
 }
 
-export function noteDetailInclude(userId: string) {
+export function noteCoreInclude() {
 	return {
 		folder: { select: { id: true, name: true } },
-		noteTags: { include: { tag: { select: { id: true, name: true } } } },
-		outgoingLinks: {
-			select: {
-				rawTargetTitle: true,
-				targetNote: { select: { id: true, title: true } },
-			},
-		},
+		noteTags: { select: { tag: { select: { id: true, name: true } } } },
+	} satisfies Prisma.NoteInclude;
+}
+export function noteDetailInclude(userId: string) {
+	return {
+		...noteCoreInclude(),
 		incomingLinks: {
 			where: { sourceNote: { userId, archivedAt: null } },
 			select: {
@@ -81,22 +80,15 @@ export function noteDetailInclude(userId: string) {
 export function serializeNote<
 	T extends {
 		noteTags: Array<{ tag: { id: string; name: string } }>;
-		outgoingLinks: Array<{
-			rawTargetTitle: string;
-			targetNote: { id: string; title: string } | null;
-		}>;
 		incomingLinks?: Array<{ sourceNote: { id: string; title: string; updatedAt: Date } }>;
 	},
 >(note: T) {
+	const { noteTags, incomingLinks, ...fields } = note;
 	return {
-		...note,
-		tags: note.noteTags.map(({ tag }) => tag),
-		wikilinks: note.outgoingLinks.map(({ rawTargetTitle, targetNote }) => ({
-			rawTargetTitle,
-			targetNoteId: targetNote?.id ?? null,
-			targetTitle: targetNote?.title ?? null,
-		})),
-		backlinks: note.incomingLinks?.map(({ sourceNote }) => sourceNote) ?? [],
+		...fields,
+		tags: noteTags.map(({ tag }) => tag),
+		wikilinks: [] as Array<{ rawTargetTitle: string; targetNoteId: string | null; targetTitle: string | null }>,
+		backlinks: incomingLinks?.map(({ sourceNote }) => sourceNote) ?? [],
 	};
 }
 
