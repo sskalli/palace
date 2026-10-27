@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useNoteStore } from "@/components/note-store-context";
 import { signOut } from "next-auth/react";
 import { useEffect, useState, type ReactNode } from "react";
 import { ArchiveIcon, DownloadIcon, NotesIcon, PinIcon, PlusIcon, SignOutIcon } from "@/components/icons";
@@ -55,7 +56,8 @@ export function Sidebar({
 	onTreeNotePatched,
 	onError,
 }: SidebarProps) {
-	const pathname = usePathname();
+	const store = useNoteStore();
+ const pathname = usePathname();
 	const searchParams = useSearchParams();
 	const router = useRouter();
 	const [menu, setMenu] = useState<{ folder: FolderSummary; anchor: DOMRect } | null>(null);
@@ -238,7 +240,12 @@ export function Sidebar({
 						</span>
 						<span className="nav-label">Export Markdown</span>
 					</a>
-					<button className="nav-action" onClick={() => void signOut({ redirectTo: "/login" })}>
+					<button className="nav-action" onClick={() => void (async () => {
+       store.flushAll();
+       if (store.hasPending()) { onError("Your notes are still saving. Please try signing out again once they are saved."); return; }
+       store.dispose();
+       await signOut({ redirectTo: "/login" });
+      })()}>
 						<span className="nav-icon">
 							<SignOutIcon />
 						</span>

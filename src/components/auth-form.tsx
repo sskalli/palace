@@ -2,7 +2,7 @@
 
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEventHandler } from "react";
 import { api, errorText } from "@/lib/api-client";
 
 export function AuthForm() {
@@ -14,7 +14,7 @@ export function AuthForm() {
 	const [error, setError] = useState("");
 	const [busy, setBusy] = useState(false);
 
-	async function submit(event: FormEvent<HTMLFormElement>) {
+	const submit: SubmitEventHandler<HTMLFormElement> = async (event) => {
 		event.preventDefault();
 		setBusy(true);
 		setError("");

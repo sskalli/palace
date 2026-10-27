@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useNoteStore } from "@/components/note-store-context";
 import { FolderIcon, PinIcon, TrashIcon } from "@/components/icons";
 import { NOTE_DRAG_TYPE, type NoteSummary } from "@/lib/client-types";
 
@@ -10,11 +13,14 @@ function formatDate(value: string): string {
 }
 
 export function NoteCard({ note, onDelete }: { note: NoteSummary; onDelete?: () => void }) {
+ const store = useNoteStore();
 	return (
 		<div className="note-card-container">
 			<Link
 				className={`note-card${onDelete ? " note-card-deletable" : ""}`}
 				href={`/notes/${note.id}`}
+ onMouseEnter={() => store.prefetch(note.id)}
+ onFocus={() => store.prefetch(note.id)}
 				onDragStart={(event) => {
 					event.dataTransfer.effectAllowed = "move";
 					event.dataTransfer.setData(NOTE_DRAG_TYPE, note.id);

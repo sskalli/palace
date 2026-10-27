@@ -5,30 +5,52 @@ import { useCallback, useEffect, useState } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { FoldersProvider } from "@/components/folders-context";
 import { Topbar } from "@/components/topbar";
+import { NoteStore } from "@/lib/note-store";
+import { NoteStoreContext } from "@/components/note-store-context";
+import type { NoteDetail } from "@/lib/client-types";
 import { useNavigation } from "@/hooks/use-navigation";
-import { api, errorText, notifyNavigationChanged } from "@/lib/api-client";
+import { api, errorText } from "@/lib/api-client";
 
-export function AppShell({ children, email }: { children: React.ReactNode; email: string }) {
+export function AppShell({ children, email, userId }: { children: React.ReactNode; email: string; userId: string }) {
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
 	const router = useRouter();
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [creatingNote, setCreatingNote] = useState(false);
 	const [toast, setToast] = useState("");
-	const { folders, tags, treeNotes, reload, reloadNotes, patchTreeNote } = useNavigation(setToast);
+	const { folders, tags, treeNotes, reload, reloadNotes, patchTreeNote, addTreeNote } = useNavigation(setToast);
 
-	const currentFolderId = pathname === "/" ? searchParams.get("folder") : null;
+	const [noteStore] = useState(() => new NoteStore(userId, api, (note, fields) => {
+  window.dispatchEvent(new CustomEvent("palace:note-saved", { detail: { note, fields } }));
+ }));
+ useEffect(() => {
+  const beforeUnload = (event: BeforeUnloadEvent) => {
+   if (!noteStore.hasPending()) return;
+   noteStore.flushAll(); event.preventDefault(); event.returnValue = "";
+  };
+  window.addEventListener("beforeunload", beforeUnload);
+  return () => window.removeEventListener("beforeunload", beforeUnload);
+ }, [noteStore]);
+
+ const currentFolderId = pathname === "/" ? searchParams.get("folder") : null;
 
 	const createNote = useCallback(
 		async (targetFolderId: string | null = currentFolderId) => {
 			setCreatingNote(true);
 			setDrawerOpen(false);
 			try {
-				const note = await api<{ id: string }>("/api/notes", {
+				const note = await api<NoteDetail>("/api/notes", {
 					method: "POST",
 					body: targetFolderId ? { folderId: targetFolderId } : {},
 				});
-				notifyNavigationChanged();
+				noteStore.seed(note);
+				// A blank note adds no tags, so the tree is patched instead of refetched.
+				addTreeNote({
+					id: note.id,
+					title: note.title.trim() || "Untitled note",
+					folderId: note.folderId,
+					isPinned: note.isPinned,
+				});
 				router.push(`/notes/${note.id}`);
 			} catch (cause) {
 				setToast(errorText(cause, "The note could not be created."));
@@ -36,7 +58,7 @@ export function AppShell({ children, email }: { children: React.ReactNode; email
 				setCreatingNote(false);
 			}
 		},
-		[router, currentFolderId],
+		[router, currentFolderId, addTreeNote, noteStore],
 	);
 
 	// The empty-state button asks for a new note through this event.
@@ -62,7 +84,7 @@ export function AppShell({ children, email }: { children: React.ReactNode; email
 			: (folders.find((folder) => folder.id === folderId)?.name ?? "Your notes");
 
 	return (
-		<div className="app-frame">
+		<NoteStoreContext value={noteStore}><div className="app-frame">
 			{drawerOpen && (
 				<button className="sidebar-scrim" aria-label="Close navigation" onClick={() => setDrawerOpen(false)} />
 			)}
@@ -89,6 +111,6 @@ export function AppShell({ children, email }: { children: React.ReactNode; email
 					</div>
 				)}
 			</main>
-		</div>
+		</div></NoteStoreContext>
 	);
 }

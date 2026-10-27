@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useNoteStore } from "@/components/note-store-context";
 import { useMemo, useState, type DragEvent, type MouseEvent, type ReactNode } from "react";
 import { ChevronIcon, FolderIcon, NotesIcon } from "@/components/icons";
 import { NOTE_DRAG_TYPE, type FolderSummary, type TreeNote } from "@/lib/client-types";
@@ -45,6 +46,7 @@ export function FolderTree({
 	openOverrides,
 	setOpen,
 }: FolderTreeProps) {
+ const store = useNoteStore();
 	// Explicit user choices; folders without one are open only when they lead to the current folder or note.
 	const [dragged, setDragged] = useState<FolderSummary | null>(null);
 	const [dropTarget, setDropTarget] = useState<string | null>(null);
@@ -53,7 +55,11 @@ export function FolderTree({
 	const notesByFolder = useMemo(() => {
 		const grouped = new Map<string, TreeNote[]>();
 		for (const note of notes) {
-			if (note.folderId) grouped.set(note.folderId, [...(grouped.get(note.folderId) ?? []), note]);
+			if (note.folderId) {
+    const group = grouped.get(note.folderId) ?? [];
+    group.push(note);
+    grouped.set(note.folderId, group);
+   }
 		}
 		return grouped;
 	}, [notes]);
@@ -145,6 +151,8 @@ export function FolderTree({
 				<Link
 					className={`nav-link tree-note${activeNoteId === note.id ? " active" : ""}`}
 					href={`/notes/${note.id}`}
+ onMouseEnter={() => store.prefetch(note.id)}
+ onFocus={() => store.prefetch(note.id)}
 				>
 					<span className="nav-icon">
 						<NotesIcon size={depth >= 0 ? 14 : undefined} />
