@@ -4,8 +4,10 @@ import {
 	listNotes,
 	makePreview,
 	noteDetailInclude,
+	noteCoreInclude,
 	refreshNoteLinks,
 	replaceNoteTags,
+	resolveLiveWikilinks,
 	serializeNote,
 } from "@/lib/notes";
 import { getAuthenticatedUserId, jsonError, parseJson } from "@/lib/http";
@@ -50,8 +52,16 @@ export async function POST(request: Request) {
 	if (!data) return jsonError("The note details are invalid.", 400);
 
 	try {
+		if (data.id) {
+			const existing = await prisma.note.findFirst({
+				where: { id: data.id, userId },
+				include: noteCoreInclude(),
+			});
+			if (existing) return Response.json(serializeNote(existing));
+		}
 		const include = noteDetailInclude(userId);
 		const createData: Prisma.NoteCreateInput = {
+			...(data.id ? { id: data.id } : {}),
 			user: { connect: { id: userId } },
 			...(data.folderId ? { folder: { connect: { id: data.folderId, userId } } } : {}),
 			title: data.title,
@@ -59,21 +69,34 @@ export async function POST(request: Request) {
 			preview: makePreview(data.contentMarkdown),
 		};
 
-		const note =
-			!data.contentMarkdown && !data.tags.length
-				? await prisma.note.create({ data: createData, include })
-				: await prisma.$transaction(async (transaction) => {
-						const created = await transaction.note.create({ data: createData, select: { id: true } });
-						if (data.contentMarkdown) {
-							await refreshNoteLinks(transaction, userId, created.id, data.contentMarkdown);
-						}
-						if (data.tags.length) {
-							await replaceNoteTags(transaction, created.id, userId, data.tags);
-						}
-						return transaction.note.findFirstOrThrow({ where: { id: created.id, userId }, include });
-					});
-		return Response.json(serializeNote(note), { status: 201 });
+		if (!data.contentMarkdown && !data.tags.length) {
+			// A blank note has no tags, links or backlinks, so only the folder needs to be read back.
+			const created = await prisma.note.create({
+				data: createData,
+				include: { folder: { select: { id: true, name: true } } },
+			});
+			return Response.json({ ...created, tags: [], wikilinks: [], backlinks: [] }, { status: 201 });
+		}
+
+		const note = await prisma.$transaction(async (transaction) => {
+			const created = await transaction.note.create({ data: createData, select: { id: true } });
+			if (data.contentMarkdown) {
+				await refreshNoteLinks(transaction, userId, created.id, data.contentMarkdown);
+			}
+			if (data.tags.length) {
+				await replaceNoteTags(transaction, created.id, userId, data.tags);
+			}
+			return transaction.note.findFirstOrThrow({ where: { id: created.id, userId }, include });
+		});
+		return Response.json(await resolveLiveWikilinks(userId, serializeNote(note)), { status: 201 });
 	} catch (error) {
+		if (data.id && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+			const existing = await prisma.note.findFirst({
+				where: { id: data.id, userId },
+				include: noteCoreInclude(),
+			});
+			if (existing) return Response.json(serializeNote(existing));
+		}
 		if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
 			return jsonError("Choose a folder belonging to your account.", 400);
 		}

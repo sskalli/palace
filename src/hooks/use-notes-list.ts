@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, errorText } from "@/lib/api-client";
+import { errorText } from "@/lib/api-client";
+import { useNoteStore } from "@/components/note-store-context";
 import type { NoteSummary } from "@/lib/client-types";
 
 export interface NotesFilter {
@@ -31,20 +32,28 @@ function notesUrl({ view, folderId, tag }: NotesFilter, cursor?: string): string
 
 /** A filtered, cursor-paginated list of notes. */
 export function useNotesList({ view, folderId, tag }: NotesFilter) {
+	const store = useNoteStore();
 	const key = `${view}:${folderId ?? ""}:${tag ?? ""}`;
-	const [state, setState] = useState<ListState>({ key: "", notes: [], nextCursor: null, error: "" });
+	const [state, setState] = useState<ListState>(() => {
+		const cached = store.getList<NotesPageData>(notesUrl({ view, folderId, tag }));
+		return cached ? { key, ...cached, error: "" } : { key: "", notes: [], nextCursor: null, error: "" };
+	});
 	const [loadingMore, setLoadingMore] = useState(false);
 	const [refreshToken, setRefreshToken] = useState(0);
 
 	useEffect(() => {
-		const refresh = () => setRefreshToken((value) => value + 1);
+		const refresh = () => {
+			store.invalidateLists();
+			setRefreshToken((value) => value + 1);
+		};
 		window.addEventListener("palace:notes-changed", refresh);
 		return () => window.removeEventListener("palace:notes-changed", refresh);
-	}, []);
+	}, [store]);
 
 	useEffect(() => {
 		let live = true;
-		api<NotesPageData>(notesUrl({ view, folderId, tag }), { fallback: "Notes could not be loaded." })
+		store
+			.loadList<NotesPageData>(notesUrl({ view, folderId, tag }))
 			.then((page) => {
 				if (live) setState({ key, ...page, error: "" });
 			})
@@ -60,15 +69,13 @@ export function useNotesList({ view, folderId, tag }: NotesFilter) {
 		return () => {
 			live = false;
 		};
-	}, [view, folderId, tag, key, refreshToken]);
+	}, [view, folderId, tag, key, refreshToken, store]);
 
 	const loadMore = useCallback(async () => {
 		if (!state.nextCursor || loadingMore) return;
 		setLoadingMore(true);
 		try {
-			const page = await api<NotesPageData>(notesUrl({ view, folderId, tag }, state.nextCursor), {
-				fallback: "More notes could not be loaded.",
-			});
+			const page = await store.loadList<NotesPageData>(notesUrl({ view, folderId, tag }, state.nextCursor));
 			setState((current) =>
 				current.key === key
 					? { ...current, notes: [...current.notes, ...page.notes], nextCursor: page.nextCursor, error: "" }
@@ -83,7 +90,7 @@ export function useNotesList({ view, folderId, tag }: NotesFilter) {
 		} finally {
 			setLoadingMore(false);
 		}
-	}, [state.nextCursor, loadingMore, view, folderId, tag, key]);
+	}, [state.nextCursor, loadingMore, view, folderId, tag, key, store]);
 
 	const removeNote = useCallback(
 		(id: string) => {
@@ -94,11 +101,13 @@ export function useNotesList({ view, folderId, tag }: NotesFilter) {
 		[key],
 	);
 
-	const loading = state.key !== key;
+	const cached = store.getList<NotesPageData>(notesUrl({ view, folderId, tag }));
+	const visible = state.key === key ? state : cached ? { key, ...cached, error: "" } : state;
+	const loading = state.key !== key && !cached;
 	return {
-		notes: loading ? [] : state.notes,
-		error: loading ? "" : state.error,
-		hasMore: !loading && state.nextCursor !== null,
+		notes: loading ? [] : visible.notes,
+		error: loading ? "" : visible.error,
+		hasMore: !loading && visible.nextCursor !== null,
 		loading,
 		loadingMore,
 		loadMore,

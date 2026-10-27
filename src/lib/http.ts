@@ -1,7 +1,11 @@
+import { cache } from "react";
 import { auth } from "@/auth";
 
+/** The session, decoded once per server render (layout, page and metadata share it). */
+export const getSession = cache(() => auth());
+
 export async function getAuthenticatedUserId(): Promise<string | null> {
-	const session = await auth();
+	const session = await getSession();
 	return session?.user?.id ?? null;
 }
 

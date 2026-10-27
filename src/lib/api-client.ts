@@ -33,3 +33,8 @@ export function notifyNavigationChanged(): void {
 export function requestNewNote(): void {
 	window.dispatchEvent(new CustomEvent("palace:new-note"));
 }
+
+/** Show a note from the workspace cache immediately while its URL transition finishes. */
+export function requestOpenNote(noteId: string): void {
+	window.dispatchEvent(new CustomEvent("palace:open-note", { detail: noteId }));
+}

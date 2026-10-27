@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { auth } from "@/auth";
+import { getSession } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { NotesPage } from "@/components/notes-page";
 
@@ -10,7 +10,7 @@ interface PageProps {
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
 	const { folder: id } = await searchParams;
 	if (!id) return {};
-	const session = await auth();
+	const session = await getSession();
 	if (!session?.user?.id) return {};
 	const folder = await prisma.folder.findFirst({
 		where: { id, userId: session.user.id },

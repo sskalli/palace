@@ -13,8 +13,9 @@ function make(doc: string, anchor = 0, head = anchor) {
 }
 
 const TABLE = "| Feature | Status |\n| :------ | :----: |\n| Notes   | Done   |\n| Canvas  | Planned |";
-const LIST = "- Palace\n  - Improve the editor\n  - Add boards\n- Portfolio\n  - [ ] Update screenshots\n  - [x] Write project description";
-const CODE = "```typescript\nconst title = \"Palace\";\nconsole.log(title);\n```";
+const LIST =
+	"- Palace\n  - Improve the editor\n  - Add boards\n- Portfolio\n  - [ ] Update screenshots\n  - [x] Write project description";
+const CODE = '```typescript\nconst title = "Palace";\nconsole.log(title);\n```';
 
 function makeAt(doc: string, anchor = 0, head = anchor) {
 	return EditorState.create({
@@ -45,7 +46,8 @@ function hiddenMarks(state: EditorState) {
 	const found: string[] = [];
 	const cursor = state.field(livePreviewField).iter();
 	for (; cursor.value; cursor.next()) {
-		if (!cursor.value.spec.widget && !cursor.value.spec.class) found.push(state.doc.sliceString(cursor.from, cursor.to));
+		if (!cursor.value.spec.widget && !cursor.value.spec.class)
+			found.push(state.doc.sliceString(cursor.from, cursor.to));
 	}
 	return found;
 }
@@ -183,7 +185,10 @@ describe("selection and integrity", () => {
 describe("preview mode", () => {
 	it("renders the whole document regardless of any editor selection", () => {
 		const html = renderToStaticMarkup(
-			createElement(MarkdownPreview, { content: `${TABLE}\n\n${LIST}\n\n${CODE}\n\n\`inline\` [[Missing]]`, wikilinks: [] }),
+			createElement(MarkdownPreview, {
+				content: `${TABLE}\n\n${LIST}\n\n${CODE}\n\n\`inline\` [[Missing]]`,
+				wikilinks: [],
+			}),
 		);
 		expect(html).toContain("<table>");
 		expect(html).toContain("<ul>");
@@ -229,9 +234,7 @@ describe("inline formatting and quotes", () => {
 
 	it("hides delimiters, link targets and quote markers when inactive", () => {
 		const state = make(doc, doc.indexOf("* list"));
-		expect(hidden(state)).toEqual(
-			expect.arrayContaining(["**", "*", "~~", "[", "](https://x.io)", "> "]),
-		);
+		expect(hidden(state)).toEqual(expect.arrayContaining(["**", "*", "~~", "[", "](https://x.io)", "> "]));
 	});
 
 	it("reveals only the span under the caret", () => {
@@ -256,7 +259,10 @@ describe("arrow navigation into rendered blocks", () => {
 	const doc = "above\n\n---\n\nbelow";
 	function press(state: EditorState, key: "up" | "down" | "left" | "right") {
 		let next = state;
-		const view = { state, dispatch: (tr: import("@codemirror/state").TransactionSpec) => (next = state.update(tr).state) };
+		const view = {
+			state,
+			dispatch: (tr: import("@codemirror/state").TransactionSpec) => (next = state.update(tr).state),
+		};
 		return { handled: enterAdjacentBlock(key)(view as never), next };
 	}
 
@@ -277,5 +283,24 @@ describe("arrow navigation into rendered blocks", () => {
 	it("leaves ordinary movement alone", () => {
 		expect(press(make(doc, 2), "left").handled).toBe(false);
 		expect(press(make(doc, doc.length), "down").handled).toBe(false);
+	});
+});
+
+describe("incremental live preview", () => {
+	it("reuses decorations while the caret stays in the same syntax span", () => {
+		const state = make("intro\n\n**bold text**\n\noutro", 10);
+		const next = withSelection(state, 12);
+		expect(next.field(livePreviewField)).toBe(state.field(livePreviewField));
+	});
+	it("reuses inactive decorations for plain-text cursor movement", () => {
+		const state = make("ordinary text\n\n# Heading", 1);
+		const next = withSelection(state, 4);
+		expect(next.field(livePreviewField)).toBe(state.field(livePreviewField));
+	});
+	it("updates cached syntax after an edit moves the markdown spans", () => {
+		const state = make("intro\n\n**bold**", 1);
+		collectLiveSyntax(state);
+		const next = state.update({ changes: { from: 0, insert: "prefix " } }).state;
+		expect(collectLiveSyntax(next).inline.find((span) => span.className === "cm-strong")?.from).toBe(14);
 	});
 });
