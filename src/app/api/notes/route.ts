@@ -6,6 +6,7 @@ import {
 	noteDetailInclude,
 	refreshNoteLinks,
 	replaceNoteTags,
+	resolveLiveWikilinks,
 	serializeNote,
 } from "@/lib/notes";
 import { getAuthenticatedUserId, jsonError, parseJson } from "@/lib/http";
@@ -59,20 +60,26 @@ export async function POST(request: Request) {
 			preview: makePreview(data.contentMarkdown),
 		};
 
-		const note =
-			!data.contentMarkdown && !data.tags.length
-				? await prisma.note.create({ data: createData, include })
-				: await prisma.$transaction(async (transaction) => {
-						const created = await transaction.note.create({ data: createData, select: { id: true } });
-						if (data.contentMarkdown) {
-							await refreshNoteLinks(transaction, userId, created.id, data.contentMarkdown);
-						}
-						if (data.tags.length) {
-							await replaceNoteTags(transaction, created.id, userId, data.tags);
-						}
-						return transaction.note.findFirstOrThrow({ where: { id: created.id, userId }, include });
-					});
-		return Response.json(serializeNote(note), { status: 201 });
+		if (!data.contentMarkdown && !data.tags.length) {
+			// A blank note has no tags, links or backlinks, so only the folder needs to be read back.
+			const created = await prisma.note.create({
+				data: createData,
+				include: { folder: { select: { id: true, name: true } } },
+			});
+			return Response.json({ ...created, tags: [], wikilinks: [], backlinks: [] }, { status: 201 });
+		}
+
+		const note = await prisma.$transaction(async (transaction) => {
+			const created = await transaction.note.create({ data: createData, select: { id: true } });
+			if (data.contentMarkdown) {
+				await refreshNoteLinks(transaction, userId, created.id, data.contentMarkdown);
+			}
+			if (data.tags.length) {
+				await replaceNoteTags(transaction, created.id, userId, data.tags);
+			}
+			return transaction.note.findFirstOrThrow({ where: { id: created.id, userId }, include });
+		});
+		return Response.json(await resolveLiveWikilinks(userId, serializeNote(note)), { status: 201 });
 	} catch (error) {
 		if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
 			return jsonError("Choose a folder belonging to your account.", 400);

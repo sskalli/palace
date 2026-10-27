@@ -111,10 +111,24 @@ export class NoteStore {
   if (pending) return pending;
   const generation = this.generation.get(id);
   const work = this.request<NoteDetail>(`/api/notes/${id}`).then(note => {
-   if (this.generation.get(id) === generation) this.seed(note);
+   if (this.generation.get(id) === generation) {
+    this.seed(note);
+    void this.loadReferences(id);
+   }
   }).finally(() => { this.loading.delete(id); });
   this.loading.set(id, work);
   return work;
+ }
+ private async loadReferences(id: string) {
+  const entry = this.entries.get(id);
+  if (!entry) return;
+  const content = entry.note.contentMarkdown;
+  try {
+   const references = await this.request<Pick<NoteDetail, "wikilinks" | "backlinks">>(`/api/notes/${id}/references`);
+   const current = this.entries.get(id);
+   if (!current || current.draft.contentMarkdown !== content || this.disposed) return;
+   this.patch(id, references);
+  } catch { /* Secondary data is retried the next time the note is revalidated. */ }
  }
  prefetch(id: string) { void this.load(id).catch(() => {}); }
  update(id: string, patch: Partial<NoteDraft>) {
@@ -151,6 +165,7 @@ export class NoteStore {
     const current = this.entries.get(id);
     if (!current || this.disposed) return;
     const note = { ...current.note, ...snapshot, archivedAt: snapshot.archived ? current.note.archivedAt ?? new Date().toISOString() : null, ...saved, tags: saved.tags ?? current.note.tags };
+    if (JSON.stringify(note.wikilinks) === JSON.stringify(current.note.wikilinks)) note.wikilinks = current.note.wikilinks;
     this.publish(id, { ...current, note, baseline: snapshot, error: "" });
     this.fetched.set(id, Date.now());
     this.invalidateLists();
@@ -165,6 +180,7 @@ export class NoteStore {
  patch(id: string, patch: Partial<NoteDetail>) {
   const entry = this.entries.get(id);
   if (!entry) return;
+  if (patch.wikilinks && JSON.stringify(patch.wikilinks) === JSON.stringify(entry.note.wikilinks)) patch = { ...patch, wikilinks: entry.note.wikilinks };
   this.publish(id, { ...entry, note: { ...entry.note, ...patch } });
  }
  remove(id: string) {

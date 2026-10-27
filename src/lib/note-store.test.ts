@@ -8,12 +8,12 @@ afterEach(() => vi.useRealTimers());
 describe("workspace note cache and save queue", () => {
  it("deduplicates prefetch and opening, then retains the result", async () => {
   const result = deferred<NoteDetail>();
-  const request = vi.fn(() => result.promise);
+  const request = vi.fn((_url: string) => result.promise);
   const store = new NoteStore("user", request as never);
   const first = store.load("a"); const second = store.load("a");
   expect(request).toHaveBeenCalledTimes(1);
   result.resolve(note()); await Promise.all([first, second]);
-  await store.load("a"); expect(request).toHaveBeenCalledTimes(1);
+  await store.load("a"); expect(request.mock.calls.filter(([url]) => url === "/api/notes/a")).toHaveLength(1);
   store.dispose();
  });
  it("sends only changed fields and saves newer edits after the in-flight revision", async () => {
