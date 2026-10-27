@@ -6,8 +6,12 @@ export default async function WorkspaceLayout({ children }: Readonly<{ children:
 	const session = await getSession();
 
 	if (!session?.user?.id) {
-		redirect("/login")
-	};
+		redirect("/login");
+	}
 
-	return <AppShell key={session.user.id} userId={session.user.id} email={session.user.email ?? ""}>{children}</AppShell>;
+	return (
+		<AppShell key={session.user.id} userId={session.user.id} email={session.user.email ?? ""}>
+			{children}
+		</AppShell>
+	);
 }

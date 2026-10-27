@@ -4,7 +4,7 @@ import {
 	listNotes,
 	makePreview,
 	noteDetailInclude,
- noteCoreInclude,
+	noteCoreInclude,
 	refreshNoteLinks,
 	replaceNoteTags,
 	resolveLiveWikilinks,
@@ -53,12 +53,15 @@ export async function POST(request: Request) {
 
 	try {
 		if (data.id) {
-   const existing = await prisma.note.findFirst({ where: { id: data.id, userId }, include: noteCoreInclude() });
-   if (existing) return Response.json(serializeNote(existing));
-  }
-  const include = noteDetailInclude(userId);
+			const existing = await prisma.note.findFirst({
+				where: { id: data.id, userId },
+				include: noteCoreInclude(),
+			});
+			if (existing) return Response.json(serializeNote(existing));
+		}
+		const include = noteDetailInclude(userId);
 		const createData: Prisma.NoteCreateInput = {
-   ...(data.id ? { id: data.id } : {}),
+			...(data.id ? { id: data.id } : {}),
 			user: { connect: { id: userId } },
 			...(data.folderId ? { folder: { connect: { id: data.folderId, userId } } } : {}),
 			title: data.title,
@@ -87,10 +90,13 @@ export async function POST(request: Request) {
 		});
 		return Response.json(await resolveLiveWikilinks(userId, serializeNote(note)), { status: 201 });
 	} catch (error) {
-  if (data.id && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-   const existing = await prisma.note.findFirst({ where: { id: data.id, userId }, include: noteCoreInclude() });
-   if (existing) return Response.json(serializeNote(existing));
-  }
+		if (data.id && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+			const existing = await prisma.note.findFirst({
+				where: { id: data.id, userId },
+				include: noteCoreInclude(),
+			});
+			if (existing) return Response.json(serializeNote(existing));
+		}
 		if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
 			return jsonError("Choose a folder belonging to your account.", 400);
 		}

@@ -33,23 +33,27 @@ function notesUrl({ view, folderId, tag }: NotesFilter, cursor?: string): string
 /** A filtered, cursor-paginated list of notes. */
 export function useNotesList({ view, folderId, tag }: NotesFilter) {
 	const store = useNoteStore();
- const key = `${view}:${folderId ?? ""}:${tag ?? ""}`;
+	const key = `${view}:${folderId ?? ""}:${tag ?? ""}`;
 	const [state, setState] = useState<ListState>(() => {
-  const cached = store.getList<NotesPageData>(notesUrl({ view, folderId, tag }));
-  return cached ? { key, ...cached, error: "" } : { key: "", notes: [], nextCursor: null, error: "" };
- });
+		const cached = store.getList<NotesPageData>(notesUrl({ view, folderId, tag }));
+		return cached ? { key, ...cached, error: "" } : { key: "", notes: [], nextCursor: null, error: "" };
+	});
 	const [loadingMore, setLoadingMore] = useState(false);
 	const [refreshToken, setRefreshToken] = useState(0);
 
 	useEffect(() => {
-		const refresh = () => { store.invalidateLists(); setRefreshToken((value) => value + 1); };
+		const refresh = () => {
+			store.invalidateLists();
+			setRefreshToken((value) => value + 1);
+		};
 		window.addEventListener("palace:notes-changed", refresh);
 		return () => window.removeEventListener("palace:notes-changed", refresh);
 	}, [store]);
 
 	useEffect(() => {
 		let live = true;
-		store.loadList<NotesPageData>(notesUrl({ view, folderId, tag }))
+		store
+			.loadList<NotesPageData>(notesUrl({ view, folderId, tag }))
 			.then((page) => {
 				if (live) setState({ key, ...page, error: "" });
 			})
@@ -98,8 +102,8 @@ export function useNotesList({ view, folderId, tag }: NotesFilter) {
 	);
 
 	const cached = store.getList<NotesPageData>(notesUrl({ view, folderId, tag }));
- const visible = state.key === key ? state : cached ? { key, ...cached, error: "" } : state;
- const loading = state.key !== key && !cached;
+	const visible = state.key === key ? state : cached ? { key, ...cached, error: "" } : state;
+	const loading = state.key !== key && !cached;
 	return {
 		notes: loading ? [] : visible.notes,
 		error: loading ? "" : visible.error,

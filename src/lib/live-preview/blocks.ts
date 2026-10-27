@@ -65,28 +65,36 @@ export function rangeTouches(selection: readonly SelectionRange[], from: number,
 }
 
 export interface LiveSyntax {
- blocks: LiveBlock[];
- inlineCode: InlineCodeSpan[];
- inline: InlineSpan[];
- quotes: QuoteBlock[];
+	blocks: LiveBlock[];
+	inlineCode: InlineCodeSpan[];
+	inline: InlineSpan[];
+	quotes: QuoteBlock[];
 }
 const syntaxCache = new WeakMap<Text, { tree: ReturnType<typeof syntaxTree>; spans: LiveSyntax }>();
 function applySelection(spans: LiveSyntax, selection: readonly SelectionRange[]): LiveSyntax {
- const activate = <T extends { from: number; to: number }>(span: T) => ({ ...span, active: rangeTouches(selection, span.from, span.to) });
- return { blocks: spans.blocks.map(activate), inlineCode: spans.inlineCode.map(activate), inline: spans.inline.map(activate), quotes: spans.quotes.map(activate) };
+	const activate = <T extends { from: number; to: number }>(span: T) => ({
+		...span,
+		active: rangeTouches(selection, span.from, span.to),
+	});
+	return {
+		blocks: spans.blocks.map(activate),
+		inlineCode: spans.inlineCode.map(activate),
+		inline: spans.inline.map(activate),
+		quotes: spans.quotes.map(activate),
+	};
 }
 
 /** Collects top-level tables, closed fenced code blocks, headings and rules, plus inline code spans. */
 export function collectLiveSyntax(state: EditorState): LiveSyntax {
- const previous = syntaxCache.get(state.doc);
- if (previous?.tree === syntaxTree(state)) return applySelection(previous.spans, state.selection.ranges);
+	const previous = syntaxCache.get(state.doc);
+	if (previous?.tree === syntaxTree(state)) return applySelection(previous.spans, state.selection.ranges);
 	const blocks: LiveBlock[] = [];
 	const inlineCode: InlineCodeSpan[] = [];
 	const inline: InlineSpan[] = [];
 	const quotes: QuoteBlock[] = [];
 	const selection = state.selection.ranges;
 	// Let CodeMirror finish large parses in the background instead of blocking input for 100 ms.
- const tree = ensureSyntaxTree(state, state.doc.length, 5) ?? syntaxTree(state);
+	const tree = ensureSyntaxTree(state, state.doc.length, 5) ?? syntaxTree(state);
 
 	tree.iterate({
 		enter(node) {
@@ -96,13 +104,24 @@ export function collectLiveSyntax(state: EditorState): LiveSyntax {
 				// containers such as blockquotes keep their existing raw presentation.
 				if (node.node.parent?.name !== "Document") return false;
 				if (kind === "code" && node.node.getChildren("CodeMark").length < 2) return false;
-				blocks.push({ kind, from: node.from, to: node.to, active: rangeTouches(selection, node.from, node.to) });
+				blocks.push({
+					kind,
+					from: node.from,
+					to: node.to,
+					active: rangeTouches(selection, node.from, node.to),
+				});
 				return false;
 			}
 			const style = INLINE_STYLES[node.name];
 			if (style) {
 				const hide = node.node.getChildren(style.marks[0]).map((m) => ({ from: m.from, to: m.to }));
-				inline.push({ from: node.from, to: node.to, className: style.className, hide, active: rangeTouches(selection, node.from, node.to) });
+				inline.push({
+					from: node.from,
+					to: node.to,
+					className: style.className,
+					hide,
+					active: rangeTouches(selection, node.from, node.to),
+				});
 				return;
 			}
 			if (node.name === "Link") {
@@ -112,13 +131,24 @@ export function collectLiveSyntax(state: EditorState): LiveSyntax {
 						{ from: marks[0].from, to: marks[0].to },
 						{ from: marks[1].from, to: node.to },
 					];
-					inline.push({ from: node.from, to: node.to, className: "cm-link", hide, active: rangeTouches(selection, node.from, node.to) });
+					inline.push({
+						from: node.from,
+						to: node.to,
+						className: "cm-link",
+						hide,
+						active: rangeTouches(selection, node.from, node.to),
+					});
 				}
 				return;
 			}
 			if (node.name === "Blockquote") {
 				const marks = node.node.getChildren("QuoteMark").map((m) => ({ from: m.from, to: m.to }));
-				quotes.push({ from: node.from, to: node.to, marks, active: rangeTouches(selection, node.from, node.to) });
+				quotes.push({
+					from: node.from,
+					to: node.to,
+					marks,
+					active: rangeTouches(selection, node.from, node.to),
+				});
 				return;
 			}
 			if (node.name === "InlineCode") {
@@ -136,13 +166,14 @@ export function collectLiveSyntax(state: EditorState): LiveSyntax {
 	});
 
 	const covered = [...blocks, ...inlineCode].sort((a, b) => a.from - b.from);
- let coveredIndex = 0;
+	let coveredIndex = 0;
 	const text = state.doc.toString();
 	for (const match of text.matchAll(/\[\[([^\]\r\n]+)\]\]/g)) {
 		const from = match.index;
 		const to = from + match[0].length;
 		while (coveredIndex < covered.length && covered[coveredIndex].to <= from) coveredIndex++;
-  if (coveredIndex < covered.length && from < covered[coveredIndex].to && to > covered[coveredIndex].from) continue;
+		if (coveredIndex < covered.length && from < covered[coveredIndex].to && to > covered[coveredIndex].from)
+			continue;
 		inline.push({
 			from,
 			to,
@@ -155,6 +186,6 @@ export function collectLiveSyntax(state: EditorState): LiveSyntax {
 		});
 	}
 	const spans = { blocks, inlineCode, inline, quotes };
- syntaxCache.set(state.doc, { tree, spans });
- return spans;
+	syntaxCache.set(state.doc, { tree, spans });
+	return spans;
 }

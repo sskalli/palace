@@ -45,7 +45,14 @@ export const blockRenderer = Facet.define<BlockRenderer, BlockRenderer>({
 });
 
 /** Source line index (relative to the block) to place the caret on for a click inside rendered content. */
-function targetOffset(view: EditorView, from: number, to: number, kind: BlockKind, dom: HTMLElement, event: MouseEvent) {
+function targetOffset(
+	view: EditorView,
+	from: number,
+	to: number,
+	kind: BlockKind,
+	dom: HTMLElement,
+	event: MouseEvent,
+) {
 	const doc = view.state.doc;
 	const firstLine = doc.lineAt(from).number;
 	const lastLine = doc.lineAt(to).number;
@@ -124,10 +131,17 @@ class RenderedBlockWidget extends WidgetType {
 
 const activeSignatures = new WeakMap<DecorationSet, string>();
 function activeSignature(spans: LiveSyntax) {
- return [spans.blocks, spans.inlineCode, spans.inline, spans.quotes].map(group => group.filter(span => span.active).map(span => `${span.from}:${span.to}`).join(",")).join(";");
+	return [spans.blocks, spans.inlineCode, spans.inline, spans.quotes]
+		.map((group) =>
+			group
+				.filter((span) => span.active)
+				.map((span) => `${span.from}:${span.to}`)
+				.join(","),
+		)
+		.join(";");
 }
 export function buildDecorations(state: EditorState, spans = collectLiveSyntax(state)): DecorationSet {
- const { blocks, inlineCode, inline, quotes } = spans;
+	const { blocks, inlineCode, inline, quotes } = spans;
 	const render = state.facet(blockRenderer);
 	const ranges: Range<Decoration>[] = [];
 
@@ -146,7 +160,10 @@ export function buildDecorations(state: EditorState, spans = collectLiveSyntax(s
 		ranges.push(Decoration.mark({ class: "cm-inline-code" }).range(span.from, span.to));
 		if (span.active) continue;
 		const hidden = Decoration.replace({});
-		ranges.push(hidden.range(span.from, span.from + span.markLength), hidden.range(span.to - span.markLength, span.to));
+		ranges.push(
+			hidden.range(span.from, span.from + span.markLength),
+			hidden.range(span.to - span.markLength, span.to),
+		);
 	}
 
 	for (const span of inline) {
@@ -172,20 +189,25 @@ export function buildDecorations(state: EditorState, spans = collectLiveSyntax(s
 	}
 
 	const decorations = Decoration.set(ranges, true);
- activeSignatures.set(decorations, activeSignature(spans));
- return decorations;
+	activeSignatures.set(decorations, activeSignature(spans));
+	return decorations;
 }
 
 /** Presentation only: derived from document, selection and syntax tree; never writes to the document. */
 export const livePreviewField = StateField.define<DecorationSet>({
 	create: buildDecorations,
 	update(value, tr) {
-  if (tr.docChanged || syntaxTree(tr.state) !== syntaxTree(tr.startState) || tr.state.facet(blockRenderer) !== tr.startState.facet(blockRenderer)) return buildDecorations(tr.state);
-  if (tr.selection) {
-   const spans = collectLiveSyntax(tr.state);
-   if (activeSignatures.get(value) !== activeSignature(spans)) return buildDecorations(tr.state, spans);
-  }
-  return value;
+		if (
+			tr.docChanged ||
+			syntaxTree(tr.state) !== syntaxTree(tr.startState) ||
+			tr.state.facet(blockRenderer) !== tr.startState.facet(blockRenderer)
+		)
+			return buildDecorations(tr.state);
+		if (tr.selection) {
+			const spans = collectLiveSyntax(tr.state);
+			if (activeSignatures.get(value) !== activeSignature(spans)) return buildDecorations(tr.state, spans);
+		}
+		return value;
 	},
 	provide: (field) => EditorView.decorations.from(field),
 });

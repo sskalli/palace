@@ -10,7 +10,8 @@ import { ContextMenu } from "@/components/context-menu";
 import { FolderDialogs, type FolderDialog } from "@/components/folder-dialogs";
 import { FolderTree } from "@/components/folder-tree";
 import { Modal } from "@/components/modal";
-import { version } from "../../package.json";
+import packageInfo from "../../package.json";
+const { version } = packageInfo;
 import { api, errorText } from "@/lib/api-client";
 import { descendantIds, isSameOrDescendant } from "@/lib/folder-tree";
 import type { FolderSummary, TagSummary, TreeNote } from "@/lib/client-types";
@@ -26,8 +27,8 @@ interface SidebarProps {
 	/** Creates a note in the given folder (none when null); without an argument it goes in the folder being viewed. */
 	onNewNote: (folderId?: string | null) => void;
 	onFoldersChanged: () => Promise<void>;
- onFolderPatched: (folder: FolderSummary) => void;
- onFolderRemoved: (id: string) => void;
+	onFolderPatched: (folder: FolderSummary) => void;
+	onFolderRemoved: (id: string) => void;
 	/** Reloads notes and tags only (folders are untouched). */
 	onNotesChanged: () => Promise<void>;
 	/** Applies a confirmed change to one sidebar note without refetching. */
@@ -54,14 +55,14 @@ export function Sidebar({
 	onCloseDrawer,
 	onNewNote,
 	onFoldersChanged,
- onFolderPatched,
- onFolderRemoved,
+	onFolderPatched,
+	onFolderRemoved,
 	onNotesChanged,
 	onTreeNotePatched,
 	onError,
 }: SidebarProps) {
 	const store = useNoteStore();
- const pathname = usePathname();
+	const pathname = usePathname();
 	const searchParams = useSearchParams();
 	const router = useRouter();
 	const [menu, setMenu] = useState<{ folder: FolderSummary; anchor: DOMRect } | null>(null);
@@ -94,8 +95,11 @@ export function Sidebar({
 
 	async function moveFolder(folder: FolderSummary, parentId: string | null) {
 		try {
-			await api(`/api/folders/${folder.id}`, { method: "PATCH", body: { parentId } });
-			await onFoldersChanged();
+			const saved = await api<FolderSummary>(`/api/folders/${folder.id}`, {
+				method: "PATCH",
+				body: { parentId },
+			});
+			onFolderPatched({ ...folder, ...saved });
 		} catch (cause) {
 			onError(errorText(cause, "The folder could not be moved."));
 		}
@@ -105,7 +109,16 @@ export function Sidebar({
 		try {
 			await api(`/api/notes/${noteId}`, { method: "PATCH", body: { folderId } });
 			onTreeNotePatched(noteId, { folderId });
-			window.dispatchEvent(new CustomEvent("palace:notes-changed", { detail: { noteId, folderId } }));
+			store.patch(noteId, { folderId });
+			window.dispatchEvent(
+				new CustomEvent("palace:notes-changed", {
+					detail: {
+						noteId,
+						folderId,
+						previousFolderId: treeNotes.find((note) => note.id === noteId)?.folderId,
+					},
+				}),
+			);
 		} catch (cause) {
 			onError(errorText(cause, "The note could not be moved."));
 		}
@@ -114,10 +127,14 @@ export function Sidebar({
 	async function updateNote(note: TreeNote, body: { isPinned?: boolean; archived?: boolean }, fallback: string) {
 		try {
 			await api(`/api/notes/${note.id}`, { method: "PATCH", body });
-			if (body.archived) await onNotesChanged();
-			else onTreeNotePatched(note.id, body);
-			window.dispatchEvent(new CustomEvent("palace:notes-changed"));
-			if (body.archived && pathname === `/notes/${note.id}`) router.refresh();
+			store.patch(note.id, {
+				...(body.isPinned !== undefined ? { isPinned: body.isPinned } : {}),
+				...(body.archived !== undefined ? { archivedAt: body.archived ? new Date().toISOString() : null } : {}),
+			});
+			window.dispatchEvent(
+				new CustomEvent("palace:note-saved", { detail: { note: { ...note, ...body }, fields: body } }),
+			);
+			window.dispatchEvent(new CustomEvent("palace:notes-changed", { detail: { noteId: note.id } }));
 		} catch (cause) {
 			onError(errorText(cause, fallback));
 		}
@@ -127,13 +144,20 @@ export function Sidebar({
 	async function deleteNote() {
 		if (!noteToDelete) return;
 		try {
+			await store.flush(noteToDelete.id);
+			if (store.get(noteToDelete.id)?.saveState === "failed")
+				throw new Error("Save your changes before deleting this note.");
 			await api(`/api/notes/${noteToDelete.id}`, { method: "PATCH", body: { archived: true } });
 			await api(`/api/notes/${noteToDelete.id}/permanent`, { method: "DELETE" });
 		} catch (cause) {
 			setDeleteError(errorText(cause, "The note could not be deleted."));
 			return;
 		}
+		window.dispatchEvent(
+			new CustomEvent("palace:note-saved", { detail: { note: noteToDelete, fields: { archived: true } } }),
+		);
 		const deletedId = noteToDelete.id;
+		store.remove(deletedId);
 		setNoteToDelete(null);
 		setDeleteError("");
 		await onNotesChanged();
@@ -244,12 +268,16 @@ export function Sidebar({
 						</span>
 						<span className="nav-label">Export Markdown</span>
 					</a>
-					<button className="nav-action" onClick={() => void (async () => {
-       store.flushAll();
-       if (store.hasPending()) { onError("Your notes are still saving. Please try signing out again once they are saved."); return; }
-       store.dispose();
-       await signOut({ redirectTo: "/login" });
-      })()}>
+					<button
+						className="nav-action"
+						onClick={() =>
+							void (async () => {
+								await store.flushAll();
+								store.dispose();
+								await signOut({ redirectTo: "/login" });
+							})()
+						}
+					>
 						<span className="nav-icon">
 							<SignOutIcon />
 						</span>
@@ -332,9 +360,9 @@ export function Sidebar({
 				dialog={dialog}
 				onClose={() => setDialog(null)}
 				onChanged={onFoldersChanged}
-    onUpsert={onFolderPatched}
-    onRemove={onFolderRemoved}
-    onRecover={setDialog}
+				onUpsert={onFolderPatched}
+				onRemove={onFolderRemoved}
+				onRecover={setDialog}
 				onError={onError}
 				onDeleted={(folder) => {
 					if (folderId && isSameOrDescendant(folders, folderId, folder.id)) router.push("/");

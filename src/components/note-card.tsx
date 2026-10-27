@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useFolders } from "@/components/folders-context";
+import { requestOpenNote } from "@/lib/api-client";
 import { useNoteStore } from "@/components/note-store-context";
 import { FolderIcon, PinIcon, TrashIcon } from "@/components/icons";
 import { NOTE_DRAG_TYPE, type NoteSummary } from "@/lib/client-types";
@@ -13,14 +15,17 @@ function formatDate(value: string): string {
 }
 
 export function NoteCard({ note, onDelete }: { note: NoteSummary; onDelete?: () => void }) {
- const store = useNoteStore();
+	const store = useNoteStore();
+	const folders = useFolders();
+	const folder = folders.find((folder) => folder.id === note.folder?.id) ?? note.folder;
 	return (
 		<div className="note-card-container">
 			<Link
 				className={`note-card${onDelete ? " note-card-deletable" : ""}`}
 				href={`/notes/${note.id}`}
- onMouseEnter={() => store.prefetch(note.id)}
- onFocus={() => store.prefetch(note.id)}
+				onMouseEnter={() => store.prefetch(note.id)}
+				onFocus={() => store.prefetch(note.id)}
+				onNavigate={() => requestOpenNote(note.id)}
 				onDragStart={(event) => {
 					event.dataTransfer.effectAllowed = "move";
 					event.dataTransfer.setData(NOTE_DRAG_TYPE, note.id);
@@ -38,7 +43,7 @@ export function NoteCard({ note, onDelete }: { note: NoteSummary; onDelete?: () 
 				<div className="note-card-foot">
 					<span className="folder-label">
 						<FolderIcon size={12} />
-						{note.folder?.name ?? "No folder"}
+						{folder?.name ?? "No folder"}
 					</span>
 					<div className="card-tags">
 						{note.tags.slice(0, 2).map((item) => (

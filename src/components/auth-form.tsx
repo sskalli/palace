@@ -35,7 +35,7 @@ export function AuthForm() {
 		} finally {
 			setBusy(false);
 		}
-	}
+	};
 
 	return (
 		<main className="auth-page">

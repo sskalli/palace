@@ -30,7 +30,7 @@ export async function GET(_request: Request, context: RouteContext) {
 			include: noteCoreInclude(),
 		});
 		return note
-			? Response.json(serializeNote(note))
+			? Response.json({ ...serializeNote(note), referencesLoaded: false })
 			: jsonError("Note not found.", 404);
 	} catch (error) {
 		console.error("Note fetch failed", error);
@@ -58,41 +58,67 @@ export async function PATCH(request: Request, context: RouteContext) {
 		...(data.isPinned !== undefined ? { isPinned: data.isPinned } : {}),
 		...(data.archived !== undefined ? { archivedAt: data.archived ? new Date() : null } : {}),
 	};
-	const select = { id: true, updatedAt: true, noteTags: { select: { tag: { select: { id: true, name: true } } } } } satisfies Prisma.NoteSelect;
+	const select = { id: true, updatedAt: true } satisfies Prisma.NoteSelect;
+	let linksChanged = false;
 
 	try {
 		// Moves, pins and archives touch one row, so they skip the transaction and the pre-read.
 		if (data.contentMarkdown === undefined && data.tags === undefined) {
-			const note = await prisma.note.update({ where: { id, userId }, data: updateData, select: { id: true, updatedAt: true } });
+			const note = await prisma.note.update({
+				where: { id, userId },
+				data: updateData,
+				select: { id: true, updatedAt: true },
+			});
 			return Response.json({ id: note.id, updatedAt: note.updatedAt });
 		}
 
 		const note = await prisma.$transaction(async (transaction) => {
-   const existing = await transaction.note.findFirst({
-    where: { id, userId },
-    select: { contentMarkdown: true, noteTags: { select: { tag: { select: { normalizedName: true } } } } },
-   });
-   if (!existing) return null;
-   if (data.tags !== undefined) {
-    const previous = existing.noteTags.map(({ tag }) => tag.normalizedName).sort();
-    const next = normalizeTagNames(data.tags).map(normalizeTagName).sort();
-    if (JSON.stringify(previous) !== JSON.stringify(next)) await replaceNoteTags(transaction, id, userId, data.tags);
-   }
-   if (data.contentMarkdown !== undefined) {
-    const previous = parseWikilinkTargets(existing.contentMarkdown).sort();
-    const next = parseWikilinkTargets(data.contentMarkdown).sort();
-    if (JSON.stringify(previous) !== JSON.stringify(next)) await refreshNoteLinks(transaction, userId, id, data.contentMarkdown);
-   }
-   return transaction.note.update({ where: { id, userId }, data: updateData, select });
+			const existing = await transaction.note.findFirst({
+				where: { id, userId },
+				select: { contentMarkdown: true },
+			});
+			if (!existing) return null;
+			if (data.tags !== undefined) {
+				const currentTags = await transaction.noteTag.findMany({
+					where: { noteId: id },
+					select: { tag: { select: { normalizedName: true } } },
+				});
+				const previous = currentTags.map(({ tag }) => tag.normalizedName).sort();
+				const next = normalizeTagNames(data.tags).map(normalizeTagName).sort();
+				if (JSON.stringify(previous) !== JSON.stringify(next))
+					await replaceNoteTags(transaction, id, userId, data.tags);
+			}
+			if (data.contentMarkdown !== undefined) {
+				const previous = parseWikilinkTargets(existing.contentMarkdown).sort();
+				const next = parseWikilinkTargets(data.contentMarkdown).sort();
+				linksChanged = JSON.stringify(previous) !== JSON.stringify(next);
+				if (linksChanged) await refreshNoteLinks(transaction, userId, id, data.contentMarkdown);
+			}
+			const updated = await transaction.note.update({ where: { id, userId }, data: updateData, select });
+			const tags =
+				data.tags !== undefined
+					? await transaction.noteTag.findMany({
+							where: { noteId: id },
+							select: { tag: { select: { id: true, name: true } } },
+						})
+					: undefined;
+			return { ...updated, tags: tags?.map(({ tag }) => tag) };
 		});
 
-  if (!note) return jsonError("Note not found.", 404);
-  const response: { id: string; updatedAt: Date; tags?: Array<{ id: string; name: string }>; wikilinks?: unknown } = { id: note.id, updatedAt: note.updatedAt };
-  if (data.tags !== undefined) response.tags = note.noteTags.map(({ tag }) => tag);
-  if (data.contentMarkdown !== undefined) {
-   response.wikilinks = (await resolveLiveWikilinks(userId, { contentMarkdown: data.contentMarkdown, wikilinks: [] })).wikilinks;
-  }
-  return Response.json(response);
+		if (!note) return jsonError("Note not found.", 404);
+		const response: {
+			id: string;
+			updatedAt: Date;
+			tags?: Array<{ id: string; name: string }>;
+			wikilinks?: unknown;
+		} = { id: note.id, updatedAt: note.updatedAt };
+		if (data.tags !== undefined) response.tags = note.tags;
+		if (linksChanged && data.contentMarkdown !== undefined) {
+			response.wikilinks = (
+				await resolveLiveWikilinks(userId, { contentMarkdown: data.contentMarkdown, wikilinks: [] })
+			).wikilinks;
+		}
+		return Response.json(response);
 	} catch (error) {
 		if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
 			// The update matched nothing: either the note or the target folder is not the user's.

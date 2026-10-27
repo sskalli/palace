@@ -60,14 +60,14 @@ export async function refreshNoteLinks(
 }
 
 export function noteCoreInclude() {
- return {
-  folder: { select: { id: true, name: true } },
-  noteTags: { select: { tag: { select: { id: true, name: true } } } },
- } satisfies Prisma.NoteInclude;
+	return {
+		folder: { select: { id: true, name: true } },
+		noteTags: { select: { tag: { select: { id: true, name: true } } } },
+	} satisfies Prisma.NoteInclude;
 }
 export function noteDetailInclude(userId: string) {
- return {
-  ...noteCoreInclude(),
+	return {
+		...noteCoreInclude(),
 		incomingLinks: {
 			where: { sourceNote: { userId, archivedAt: null } },
 			select: {
@@ -84,7 +84,7 @@ export function serializeNote<
 	},
 >(note: T) {
 	const { noteTags, incomingLinks, ...fields } = note;
- return {
+	return {
 		...fields,
 		tags: noteTags.map(({ tag }) => tag),
 		wikilinks: [] as Array<{ rawTargetTitle: string; targetNoteId: string | null; targetTitle: string | null }>,

@@ -2,11 +2,21 @@
 
 import Link from "next/link";
 import { useEffect, useState, type FocusEvent } from "react";
-import { ArchiveIcon, EyeIcon, ExpandIcon, ShrinkIcon, PenIcon, PinIcon, TrashIcon, UnarchiveIcon } from "@/components/icons";
+import {
+	ArchiveIcon,
+	EyeIcon,
+	ExpandIcon,
+	ShrinkIcon,
+	PenIcon,
+	PinIcon,
+	TrashIcon,
+	UnarchiveIcon,
+} from "@/components/icons";
 import { LiveMarkdownEditor } from "@/components/live-markdown-editor";
 import { MarkdownPreview } from "@/components/markdown-preview";
 import { Modal } from "@/components/modal";
-import { errorText } from "@/lib/api-client";
+import { useNoteStore } from "@/components/note-store-context";
+import { errorText, requestOpenNote } from "@/lib/api-client";
 import { useFolders } from "@/components/folders-context";
 import { folderPath } from "@/lib/folder-tree";
 import { TagEditor } from "@/components/tag-editor";
@@ -17,6 +27,7 @@ const SAVE_LABELS: Record<SaveState, string> = { saved: "Saved", saving: "Saving
 export function NoteEditor({ noteId }: { noteId: string }) {
 	const { note, folderId, draft, loadError, saveState, saveError, update, flush, retry, remove } =
 		useNoteEditor(noteId);
+	const store = useNoteStore();
 	const folders = useFolders();
 	const [preview, setPreview] = useState(false);
 	const [wide, setWide] = useState(false);
@@ -183,17 +194,39 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 				</article>
 
 				<section className="backlinks">
-					<h2>Linked mentions · {note.backlinks.length}</h2>
+					<h2>
+						Linked mentions · {note.backlinksLimited ? "First " : ""}
+						{note.backlinks.length}
+					</h2>
+					{note.referencesLoaded === false && <p className="muted-text">Loading linked notes…</p>}
+					{note.referencesError && (
+						<p role="status" className="muted-text">
+							Linked notes could not be loaded.{" "}
+							<button className="text-button" onClick={() => void store.refreshReferences(noteId)}>
+								Retry
+							</button>
+						</p>
+					)}
 					{note.backlinks.length ? (
 						<div className="backlink-list">
 							{note.backlinks.map((backlink) => (
-								<Link className="backlink" href={`/notes/${backlink.id}`} key={backlink.id}>
+								<Link
+									className="backlink"
+									href={`/notes/${backlink.id}`}
+									onMouseEnter={() => store.prefetch(backlink.id)}
+									onFocus={() => store.prefetch(backlink.id)}
+									onNavigate={() => requestOpenNote(backlink.id)}
+									key={backlink.id}
+								>
 									{backlink.title.trim() || "Untitled note"}
 								</Link>
 							))}
 						</div>
 					) : (
-						<span className="muted-text">Notes that link here will appear in this space.</span>
+						note.referencesLoaded !== false &&
+						!note.referencesError && (
+							<span className="muted-text">Notes that link here will appear in this space.</span>
+						)
 					)}
 				</section>
 			</div>
