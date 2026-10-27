@@ -279,3 +279,22 @@ describe("arrow navigation into rendered blocks", () => {
 		expect(press(make(doc, doc.length), "down").handled).toBe(false);
 	});
 });
+
+describe("incremental live preview", () => {
+ it("reuses decorations while the caret stays in the same syntax span", () => {
+  const state = make("intro\n\n**bold text**\n\noutro", 10);
+  const next = withSelection(state, 12);
+  expect(next.field(livePreviewField)).toBe(state.field(livePreviewField));
+ });
+ it("reuses inactive decorations for plain-text cursor movement", () => {
+  const state = make("ordinary text\n\n# Heading", 1);
+  const next = withSelection(state, 4);
+  expect(next.field(livePreviewField)).toBe(state.field(livePreviewField));
+ });
+ it("updates cached syntax after an edit moves the markdown spans", () => {
+  const state = make("intro\n\n**bold**", 1);
+  collectLiveSyntax(state);
+  const next = state.update({ changes: { from: 0, insert: "prefix " } }).state;
+  expect(collectLiveSyntax(next).inline.find(span => span.className === "cm-strong")?.from).toBe(14);
+ });
+});
