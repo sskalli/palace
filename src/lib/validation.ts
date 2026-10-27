@@ -8,6 +8,7 @@ const passwordSchema = z
 
 export const noteCreateSchema = z
 	.object({
+  id: z.string().uuid().optional(),
 		title: z.string().max(200).optional().default(""),
 		contentMarkdown: z.string().max(100_000).optional().default(""),
 		folderId: z.string().trim().min(1).max(100).nullable().optional(),
@@ -29,6 +30,7 @@ export const noteUpdateSchema = z
 
 export const folderCreateSchema = z
 	.object({
+  id: z.string().uuid().optional(),
 		name: z.string().trim().min(1).max(80),
 		parentId: z.string().trim().min(1).max(100).nullable().optional(),
 	})

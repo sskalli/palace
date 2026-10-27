@@ -94,6 +94,16 @@ export class NoteStore {
   this.fetched.set(note.id, Date.now());
   this.evict();
  }
+ create(folderId: string | null, folder: NoteDetail["folder"] = null): string {
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const note: NoteDetail = { id, title: "", contentMarkdown: "", createdAt: now, updatedAt: now, folderId, folder, isPinned: false, archivedAt: null, tags: [], wikilinks: [], backlinks: [] };
+  const draft = toDraft(note);
+  this.publish(id, { note, draft, baseline: draft, creating: true, saveState: "saving", error: "" });
+  this.invalidateLists();
+  void this.flush(id);
+  return id;
+ }
  private evict() {
   if (this.entries.size <= 100) return;
   for (const [id, entry] of this.entries) {
@@ -153,6 +163,23 @@ export class NoteStore {
   while (!this.disposed) {
    const entry = this.entries.get(id);
    if (!entry) return;
+   if (entry.creating) {
+    this.publish(id, { ...entry, saveState: "saving", error: "" });
+    try {
+     const created = await this.request<NoteDetail>("/api/notes", { method: "POST", body: { id, folderId: entry.note.folderId } });
+     const current = this.entries.get(id);
+     if (!current || this.disposed) return;
+     this.publish(id, { ...current, note: created, baseline: toDraft(created), creating: false });
+     this.fetched.set(id, Date.now());
+     this.invalidateLists();
+     this.changed(created, { title: created.title });
+     continue;
+    } catch (cause) {
+     const current = this.entries.get(id);
+     if (current) this.publish(id, { ...current, saveState: "failed", error: errorText(cause, "Your note could not be created. Your draft is kept here; retry to save it.") });
+     return;
+    }
+   }
    const patch = draftChanges(entry.draft, entry.baseline);
    if (!Object.keys(patch).length) {
     this.publish(id, { ...entry, saveState: "saved", error: "" });

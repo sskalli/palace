@@ -1,4 +1,5 @@
 export interface FolderSummary {
+ pending?: boolean;
 	id: string;
 	name: string;
 	parentId: string | null;

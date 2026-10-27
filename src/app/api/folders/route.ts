@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUserId, jsonError, parseJson } from "@/lib/http";
 import { ensureNameFree, folderErrorResponse, FolderError } from "@/lib/folders";
@@ -34,6 +35,10 @@ export async function POST(request: Request) {
 	const parentId = data.parentId ?? null;
 
 	try {
+  if (data.id) {
+   const existing = await prisma.folder.findFirst({ where: { id: data.id, userId }, select: { id: true, name: true, parentId: true } });
+   if (existing) return Response.json(existing);
+  }
 		const folder = await prisma.$transaction(async (transaction) => {
 			if (parentId) {
 				const parent = await transaction.folder.findFirst({
@@ -44,12 +49,16 @@ export async function POST(request: Request) {
 			}
 			await ensureNameFree(transaction, userId, parentId, data.name);
 			return transaction.folder.create({
-				data: { userId, name: data.name, parentId },
+				data: { ...(data.id ? { id: data.id } : {}), userId, name: data.name, parentId },
 				select: { id: true, name: true, parentId: true },
 			});
 		});
 		return Response.json(folder, { status: 201 });
 	} catch (error) {
+  if (data.id && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+   const existing = await prisma.folder.findFirst({ where: { id: data.id, userId }, select: { id: true, name: true, parentId: true } });
+   if (existing) return Response.json(existing);
+  }
 		const known = folderErrorResponse(error);
 		if (known) return known;
 		console.error("Folder creation failed", error);

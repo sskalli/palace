@@ -20,7 +20,7 @@ export function useNavigation(onError: (message: string) => void) {
  const folderChanges = useRef(new Map<string, FolderSummary | null>());
  const reloadFolders = useCallback(async () => {
   const ticket = ++latest.current.folders;
-  folderChanges.current.clear();
+  for (const [id, folder] of folderChanges.current) if (!folder?.pending) folderChanges.current.delete(id);
   try {
    const rows = await api<FolderSummary[]>("/api/folders");
    if (ticket === latest.current.folders) setFolders(mergeNavigation(rows, folderChanges.current).sort((a,b) => a.name.localeCompare(b.name)));

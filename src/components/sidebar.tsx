@@ -26,6 +26,8 @@ interface SidebarProps {
 	/** Creates a note in the given folder (none when null); without an argument it goes in the folder being viewed. */
 	onNewNote: (folderId?: string | null) => void;
 	onFoldersChanged: () => Promise<void>;
+ onFolderPatched: (folder: FolderSummary) => void;
+ onFolderRemoved: (id: string) => void;
 	/** Reloads notes and tags only (folders are untouched). */
 	onNotesChanged: () => Promise<void>;
 	/** Applies a confirmed change to one sidebar note without refetching. */
@@ -52,6 +54,8 @@ export function Sidebar({
 	onCloseDrawer,
 	onNewNote,
 	onFoldersChanged,
+ onFolderPatched,
+ onFolderRemoved,
 	onNotesChanged,
 	onTreeNotePatched,
 	onError,
@@ -328,6 +332,9 @@ export function Sidebar({
 				dialog={dialog}
 				onClose={() => setDialog(null)}
 				onChanged={onFoldersChanged}
+    onUpsert={onFolderPatched}
+    onRemove={onFolderRemoved}
+    onRecover={setDialog}
 				onError={onError}
 				onDeleted={(folder) => {
 					if (folderId && isSameOrDescendant(folders, folderId, folder.id)) router.push("/");

@@ -56,3 +56,27 @@ describe("workspace note cache and save queue", () => {
   expect(store.get("b")?.draft.title).toBe("Title"); store.dispose();
  });
 });
+
+it("opens a provisional note synchronously and queues edits until creation finishes", async () => {
+ const creation = deferred<NoteDetail>();
+ const request = vi.fn().mockImplementationOnce(() => creation.promise).mockResolvedValue({ updatedAt: "saved" });
+ const store = new NoteStore("user", request as never);
+ const id = store.create(null);
+ expect(store.get(id)?.creating).toBe(true);
+ store.update(id, { title: "Typed during creation" });
+ expect(request).toHaveBeenCalledTimes(1);
+ creation.resolve({ ...note(id), title: "", contentMarkdown: "" }); await store.flush(id);
+ expect(request.mock.calls[1]).toEqual([`/api/notes/${id}`, { method: "PATCH", body: { title: "Typed during creation" } }]);
+ expect(store.get(id)?.saveState).toBe("saved"); store.dispose();
+});
+it("retries failed creation with the same id and retains its draft", async () => {
+ const request = vi.fn().mockRejectedValueOnce(new Error("Offline")).mockImplementation(async (_url, options) => ({ ...note(options.body.id), title: "", contentMarkdown: "" }));
+ const store = new NoteStore("user", request as never);
+ const id = store.create(null); await store.flush(id);
+ expect(store.get(id)?.saveState).toBe("failed");
+ expect(store.get(id)?.creating).toBe(true);
+ await store.flush(id);
+ expect(request.mock.calls[0][1].body.id).toBe(id);
+ expect(request.mock.calls[1][1].body.id).toBe(id);
+ expect(store.get(id)?.creating).toBe(false); store.dispose();
+});
