@@ -111,7 +111,7 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 					</div>
 					<div className="editor-toolbar-right">
 						<button
-							className="icon-button"
+							className="icon-button editor-width-toggle"
 							title={widthLabel}
 							aria-label={widthLabel}
 							aria-pressed={wide}
