@@ -8,6 +8,8 @@ export interface LiveBlock {
 	from: number;
 	to: number;
 	active: boolean;
+	/** Unclosed fences stay editable even when the caret is elsewhere. */
+	closed?: boolean;
 }
 
 export interface InlineCodeSpan {
@@ -103,12 +105,12 @@ export function collectLiveSyntax(state: EditorState): LiveSyntax {
 				// Top-level only: nested lists belong to their outermost list, and
 				// containers such as blockquotes keep their existing raw presentation.
 				if (node.node.parent?.name !== "Document") return false;
-				if (kind === "code" && node.node.getChildren("CodeMark").length < 2) return false;
 				blocks.push({
 					kind,
 					from: node.from,
 					to: node.to,
 					active: rangeTouches(selection, node.from, node.to),
+					...(kind === "code" ? { closed: node.node.getChildren("CodeMark").length >= 2 } : {}),
 				});
 				return false;
 			}
