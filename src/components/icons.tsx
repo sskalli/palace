@@ -120,3 +120,9 @@ export const ShrinkIcon = (props: IconProps) => (
 		<path d="M3 12h7M21 12h-7M7 8l3 4-3 4M17 8l-3 4 3 4" />
 	</Svg>
 );
+
+export const CollapseFoldersIcon = (props: IconProps) => (
+	<Svg {...props}>
+		<path d="M5 3h14M5 21h14M8 8l4-4 4 4M8 16l4 4 4-4" />
+	</Svg>
+);

@@ -5,7 +5,15 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useNoteStore } from "@/components/note-store-context";
 import { signOut } from "next-auth/react";
 import { useEffect, useState, type ReactNode } from "react";
-import { ArchiveIcon, DownloadIcon, NotesIcon, PinIcon, PlusIcon, SignOutIcon } from "@/components/icons";
+import {
+	ArchiveIcon,
+	CollapseFoldersIcon,
+	DownloadIcon,
+	NotesIcon,
+	PinIcon,
+	PlusIcon,
+	SignOutIcon,
+} from "@/components/icons";
 import { ContextMenu } from "@/components/context-menu";
 import { FolderDialogs, type FolderDialog } from "@/components/folder-dialogs";
 import { FolderTree } from "@/components/folder-tree";
@@ -232,14 +240,28 @@ export function Sidebar({
 					header={
 						<div className="nav-section nav-section-folders">
 							<span className="nav-label">Folders</span>
-							<button
-								className="tiny-action"
-								title="Create folder"
-								aria-label="Create folder"
-								onClick={() => setDialog({ kind: "create" })}
-							>
-								<PlusIcon size={14} />
-							</button>
+							<div className="folder-header-actions">
+								<button
+									className="tiny-action"
+									title="Collapse all folders"
+									aria-label="Collapse all folders"
+									onClick={() =>
+										setOpenOverrides(
+											Object.fromEntries(folders.map((folder) => [folder.id, false])),
+										)
+									}
+								>
+									<CollapseFoldersIcon size={14} />
+								</button>
+								<button
+									className="tiny-action"
+									title="Create folder"
+									aria-label="Create folder"
+									onClick={() => setDialog({ kind: "create" })}
+								>
+									<PlusIcon size={14} />
+								</button>
+							</div>
 						</div>
 					}
 				/>
