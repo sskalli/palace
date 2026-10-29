@@ -1,7 +1,36 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { folderPath } from "@/lib/folder-tree";
 
 export const NOTE_SEARCH_LIMIT = 30;
+export const FOLDER_SEARCH_LIMIT = 30;
+
+export async function searchUserFolders(userId: string, query: string) {
+	const trimmedQuery = query.trim();
+	if (!trimmedQuery) return [];
+	const matches = await prisma.folder.findMany({
+		where: { userId, name: { contains: trimmedQuery, mode: "insensitive" } },
+		orderBy: [{ name: "asc" }, { id: "asc" }],
+		take: FOLDER_SEARCH_LIMIT,
+		select: { id: true, name: true, parentId: true },
+	});
+	if (!matches.length) return [];
+	const folders = await prisma.folder.findMany({
+		where: { userId },
+		select: { id: true, name: true, parentId: true },
+	});
+	return matches.map((folder) => ({
+		type: "folder" as const,
+		id: folder.id,
+		name: folder.name,
+		path: folderPath(folders, folder.id).map(({ id, name }) => ({ id, name })),
+	}));
+}
+
+export async function searchUserContent(userId: string, query: string) {
+	const [notes, folders] = await Promise.all([searchUserNotes(userId, query), searchUserFolders(userId, query)]);
+	return [...folders, ...notes.map((note) => ({ type: "note" as const, ...note }))];
+}
 
 export async function searchUserNotes(userId: string, query: string) {
 	const trimmedQuery = query.trim();

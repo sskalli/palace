@@ -56,7 +56,8 @@ export interface NoteDetail {
 	backlinks: Array<{ id: string; title: string; updatedAt: string }>;
 }
 
-export interface SearchResult {
+export interface NoteSearchResult {
+	type: "note";
 	id: string;
 	title: string;
 	preview: string;
@@ -64,3 +65,12 @@ export interface SearchResult {
 	tags: Array<{ id: string; name: string }>;
 	updatedAt: string;
 }
+
+export interface FolderSearchResult {
+	type: "folder";
+	id: string;
+	name: string;
+	path: Array<{ id: string; name: string }>;
+}
+
+export type SearchResult = NoteSearchResult | FolderSearchResult;
