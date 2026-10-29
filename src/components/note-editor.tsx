@@ -111,10 +111,11 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 					</div>
 					<div className="editor-toolbar-right">
 						<button
-							className="icon-button editor-width-toggle"
+							className="icon-button"
 							title={widthLabel}
 							aria-label={widthLabel}
 							aria-pressed={wide}
+							data-editor-width-toggle=""
 							onClick={() => setWide((value) => !value)}
 						>
 							{wide ? <ShrinkIcon /> : <ExpandIcon />}
