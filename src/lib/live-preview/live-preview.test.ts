@@ -38,7 +38,8 @@ function withSelection(state: EditorState, anchor: number, head = anchor) {
 function widgets(state: EditorState) {
 	const found: { from: number; to: number }[] = [];
 	const cursor = state.field(livePreviewField).iter();
-	for (; cursor.value; cursor.next()) if (cursor.value.spec.widget) found.push({ from: cursor.from, to: cursor.to });
+	for (; cursor.value; cursor.next())
+		if (cursor.value.spec.widget && cursor.value.spec.block) found.push({ from: cursor.from, to: cursor.to });
 	return found;
 }
 
@@ -114,6 +115,27 @@ describe("fenced code", () => {
 		expect(() => collectLiveSyntax(withSelection(state, unclosed.length))).not.toThrow();
 		expect(widgets(make("```"))).toEqual([]);
 	});
+
+	it.each([
+		["```", ""],
+		["```ts\nlast content line", "last content line"],
+		["```ts\nfirst\nlast", "first\nlast"],
+		["```ts\nfirst\nlast\n```", "first\nlast\n"],
+		["```\n```", ""],
+		["  ```\n  text\n  ```", "text\n"],
+		["   ```\n one\n    two\n   ```", "one\n two\n"],
+		["  ```\n  first\n  last", "first\nlast"],
+		["  ```\n\ttext\n  ```", "  text\n"],
+	])("copies the entire content of active fence %s", (doc, expected) => {
+		const state = make(doc, doc.indexOf("```") + 1);
+		const copies: string[] = [];
+		const cursor = state.field(livePreviewField).iter();
+		for (; cursor.value; cursor.next()) {
+			if (cursor.value.spec.widget && !cursor.value.spec.block) copies.push(cursor.value.spec.widget.source);
+		}
+		expect(copies).toEqual([expected]);
+		expect(widgets(state)).toEqual([]);
+	});
 });
 
 describe("inline code", () => {
@@ -137,6 +159,18 @@ describe("inline code", () => {
 		expect(hiddenMarks(withSelection(state, doc.length))).toHaveLength(4);
 		const listDoc = "- item `x`\n\nplain";
 		expect(hiddenMarks(make(listDoc, listDoc.length))).toEqual(["`", "`"]);
+	});
+
+	it("keeps copy controls available and copies code without its delimiters", () => {
+		for (const selection of [0, doc.indexOf("code") + 1]) {
+			const state = make(doc, selection);
+			const copies: string[] = [];
+			const cursor = state.field(livePreviewField).iter();
+			for (; cursor.value; cursor.next()) {
+				if (cursor.value.spec.widget && !cursor.value.spec.block) copies.push(cursor.value.spec.widget.source);
+			}
+			expect(copies).toEqual(["code", "x`y"]);
+		}
 	});
 });
 
@@ -192,8 +226,9 @@ describe("preview mode", () => {
 		);
 		expect(html).toContain("<table>");
 		expect(html).toContain("<ul>");
-		expect(html).toContain("<pre><code");
+		expect(html).toContain('<pre><span class="code-snippet"><code');
 		expect(html).toContain("<code>inline</code>");
+		expect(html).toContain('aria-label="Copy code"');
 		expect(html).not.toContain("| Feature");
 		expect(html).not.toContain("```");
 	});

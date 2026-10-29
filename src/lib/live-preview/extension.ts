@@ -2,6 +2,7 @@ import { syntaxTree } from "@codemirror/language";
 import { EditorSelection, Facet, Prec, StateField, type EditorState, type Range } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType, keymap, type DecorationSet } from "@codemirror/view";
 import { collectLiveSyntax, type BlockKind, type LiveSyntax } from "./blocks";
+import { codeCopyButton, copyCode } from "@/lib/copy-code";
 
 /** Renders markdown `source` into `container` and returns a cleanup function. */
 export type BlockRenderer = (container: HTMLElement, source: string) => () => void;
@@ -104,6 +105,7 @@ class RenderedBlockWidget extends WidgetType {
 		this.cleanup = this.render(dom, this.source);
 		dom.addEventListener("mousedown", (event) => {
 			if (event.button !== 0) return;
+			if (codeCopyButton(event.target)) return;
 			event.preventDefault();
 			const anchor = event.target instanceof Element ? event.target.closest("a") : null;
 			if (anchor && (event.ctrlKey || event.metaKey)) {
@@ -129,7 +131,51 @@ class RenderedBlockWidget extends WidgetType {
 	}
 }
 
+class CodeCopyWidget extends WidgetType {
+	constructor(readonly source: string) {
+		super();
+	}
+	eq(other: CodeCopyWidget) {
+		return this.source === other.source;
+	}
+	toDOM() {
+		const button = document.createElement("button");
+		button.type = "button";
+		button.className = "code-copy-button cm-code-copy";
+		button.textContent = "Copy";
+		button.setAttribute("aria-label", "Copy code");
+		button.title = "Copy code";
+		button.dataset.copyCode = "";
+		for (const type of ["pointerdown", "mousedown"])
+			button.addEventListener(type, (event) => {
+				event.preventDefault();
+				event.stopPropagation();
+			});
+		button.addEventListener("click", (event) => {
+			event.preventDefault();
+			event.stopPropagation();
+			void copyCode(button, this.source);
+		});
+		return button;
+	}
+	ignoreEvent() {
+		return true;
+	}
+}
+
 const activeSignatures = new WeakMap<DecorationSet, string>();
+
+function unindentCode(source: string, indentation: number) {
+	return source.replace(/^[ \t]*/gm, (prefix) => {
+		let columns = 0;
+		let index = 0;
+		while (index < prefix.length && columns < indentation) {
+			columns += prefix[index++] === "\t" ? 4 - (columns % 4) : 1;
+		}
+		return " ".repeat(Math.max(0, columns - indentation)) + prefix.slice(index);
+	});
+}
+
 function activeSignature(spans: LiveSyntax) {
 	return [spans.blocks, spans.inlineCode, spans.inline, spans.quotes]
 		.map((group) =>
@@ -146,7 +192,17 @@ export function buildDecorations(state: EditorState, spans = collectLiveSyntax(s
 	const ranges: Range<Decoration>[] = [];
 
 	for (const block of blocks) {
-		if (block.active) continue;
+		if (block.active || block.closed === false) {
+			if (block.kind === "code") {
+				const firstLine = state.doc.lineAt(block.from);
+				const lastLine = state.doc.lineAt(block.to);
+				const end = block.closed ? lastLine.from : block.to;
+				const indentation = firstLine.text.match(/^ {0,3}/)![0].length;
+				const source = unindentCode(state.doc.sliceString(Math.min(firstLine.to + 1, end), end), indentation);
+				ranges.push(Decoration.widget({ widget: new CodeCopyWidget(source), side: 1 }).range(firstLine.to));
+			}
+			continue;
+		}
 		const source = state.doc.sliceString(block.from, block.to);
 		ranges.push(
 			Decoration.replace({ widget: new RenderedBlockWidget(block.kind, source, render), block: true }).range(
@@ -158,6 +214,11 @@ export function buildDecorations(state: EditorState, spans = collectLiveSyntax(s
 
 	for (const span of inlineCode) {
 		ranges.push(Decoration.mark({ class: "cm-inline-code" }).range(span.from, span.to));
+		const source = state.doc
+			.sliceString(span.from + span.markLength, span.to - span.markLength)
+			.replace(/\n/g, " ");
+		const normalized = /^ .* $/.test(source) && /[^ ]/.test(source) ? source.slice(1, -1) : source;
+		ranges.push(Decoration.widget({ widget: new CodeCopyWidget(normalized), side: 1 }).range(span.to));
 		if (span.active) continue;
 		const hidden = Decoration.replace({});
 		ranges.push(
@@ -224,7 +285,7 @@ export const livePreviewTheme = EditorView.baseTheme({
 function renderedBlockAt(state: EditorState, line: { from: number; to: number }) {
 	const cursor = state.field(livePreviewField).iter();
 	for (; cursor.value; cursor.next()) {
-		if (cursor.value.spec.widget && cursor.from <= line.from && cursor.to >= line.to) {
+		if (cursor.value.spec.widget && cursor.value.spec.block && cursor.from <= line.from && cursor.to >= line.to) {
 			return { from: cursor.from, to: cursor.to };
 		}
 	}

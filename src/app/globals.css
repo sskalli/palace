@@ -1600,3 +1600,38 @@ textarea:focus-visible {
 	font-size: 12px;
 	overflow-wrap: anywhere;
 }
+.code-snippet {
+	display: inline;
+	position: relative;
+}
+.code-copy-button {
+	display: inline-flex;
+	align-items: center;
+	margin-left: 0.4rem;
+	padding: 0.1rem 0.35rem;
+	border: 1px solid var(--border-subtle);
+	border-radius: 4px;
+	background: var(--bg-elevated);
+	color: var(--text-secondary);
+	font: 11px var(--font-ui);
+	cursor: pointer;
+	vertical-align: middle;
+}
+.code-copy-button:hover,
+.code-copy-button:focus-visible {
+	color: var(--text-primary);
+}
+.preview-content pre .code-snippet {
+	display: block;
+}
+.preview-content pre .code-copy-button {
+	position: absolute;
+	top: 0;
+	right: 0;
+}
+.preview-content pre code {
+	padding-right: 4.5rem;
+}
+.cm-code-copy {
+	user-select: none;
+}
