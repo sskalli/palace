@@ -412,6 +412,9 @@ export class NoteStore {
 	flushAll() {
 		return Promise.all([...this.entries.keys()].map((id) => this.flush(id)));
 	}
+	cachedNoteIds(): string[] {
+		return [...this.entries.keys()];
+	}
 	dispose() {
 		this.disposed = true;
 		this.timers.forEach(clearTimeout);
