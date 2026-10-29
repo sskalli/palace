@@ -897,6 +897,10 @@ textarea:focus-visible {
 	font: 0.9em var(--font-code);
 }
 .preview-content pre code {
+	padding: 0;
+	border-radius: 0;
+	color: inherit;
+	background: transparent;
 	font: inherit;
 }
 .preview-content table {
@@ -1607,8 +1611,12 @@ textarea:focus-visible {
 .code-copy-button {
 	display: inline-flex;
 	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	flex: 0 0 24px;
 	margin-left: 0.4rem;
-	padding: 0.1rem 0.35rem;
+	padding: 0;
 	border: 1px solid var(--border-subtle);
 	border-radius: 4px;
 	background: var(--bg-elevated);
@@ -1623,14 +1631,12 @@ textarea:focus-visible {
 }
 .preview-content pre .code-snippet {
 	display: block;
+	padding-right: 32px;
 }
 .preview-content pre .code-copy-button {
 	position: absolute;
 	top: 0;
 	right: 0;
-}
-.preview-content pre code {
-	padding-right: 4.5rem;
 }
 .cm-code-copy {
 	user-select: none;
