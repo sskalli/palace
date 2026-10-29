@@ -166,6 +166,11 @@ textarea:focus-visible {
 	justify-content: space-between;
 	margin-top: 0;
 }
+.folder-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
 .folder-tree {
 	margin-top: 25px;
 }
@@ -897,6 +902,10 @@ textarea:focus-visible {
 	font: 0.9em var(--font-code);
 }
 .preview-content pre code {
+	padding: 0;
+	border-radius: 0;
+	color: inherit;
+	background: transparent;
 	font: inherit;
 }
 .preview-content table {
@@ -1455,6 +1464,9 @@ textarea:focus-visible {
 	}
 }
 @media (max-width: 700px) {
+	[data-editor-width-toggle] {
+		display: none;
+	}
 	.sidebar {
 		transform: translateX(-100%);
 		width: min(290px, 84vw);
@@ -1594,9 +1606,51 @@ textarea:focus-visible {
 .section-empty p {
 	margin: 0;
 }
+.note-path a:hover,
+.note-path a:focus-visible {
+	color: var(--accent);
+	text-decoration: underline;
+}
 .note-path {
 	margin-bottom: 10px;
 	color: var(--text-muted);
 	font-size: 12px;
 	overflow-wrap: anywhere;
+}
+.code-snippet {
+	display: inline;
+	position: relative;
+}
+.code-copy-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	flex: 0 0 24px;
+	margin-left: 0.4rem;
+	padding: 0;
+	border: 1px solid var(--border-subtle);
+	border-radius: 4px;
+	background: var(--bg-elevated);
+	color: var(--text-secondary);
+	font: 11px var(--font-ui);
+	cursor: pointer;
+	vertical-align: middle;
+}
+.code-copy-button:hover,
+.code-copy-button:focus-visible {
+	color: var(--text-primary);
+}
+.preview-content pre .code-snippet {
+	display: block;
+	padding-right: 32px;
+}
+.preview-content pre .code-copy-button {
+	position: absolute;
+	top: 0;
+	right: 0;
+}
+.cm-code-copy {
+	user-select: none;
 }

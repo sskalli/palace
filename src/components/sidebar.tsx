@@ -5,7 +5,15 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useNoteStore } from "@/components/note-store-context";
 import { signOut } from "next-auth/react";
 import { useEffect, useState, type ReactNode } from "react";
-import { ArchiveIcon, DownloadIcon, NotesIcon, PinIcon, PlusIcon, SignOutIcon } from "@/components/icons";
+import {
+	ArchiveIcon,
+	CollapseFoldersIcon,
+	DownloadIcon,
+	NotesIcon,
+	PinIcon,
+	PlusIcon,
+	SignOutIcon,
+} from "@/components/icons";
 import { ContextMenu } from "@/components/context-menu";
 import { FolderDialogs, type FolderDialog } from "@/components/folder-dialogs";
 import { FolderTree } from "@/components/folder-tree";
@@ -13,6 +21,7 @@ import { Modal } from "@/components/modal";
 import packageInfo from "../../package.json";
 const { version } = packageInfo;
 import { api, errorText } from "@/lib/api-client";
+import { downloadMarkdownExport } from "@/lib/download-export";
 import { descendantIds, isSameOrDescendant } from "@/lib/folder-tree";
 import type { FolderSummary, TagSummary, TreeNote } from "@/lib/client-types";
 
@@ -71,6 +80,7 @@ export function Sidebar({
 	const [deleteError, setDeleteError] = useState("");
 	const [dragging, setDragging] = useState(false);
 	const [dialog, setDialog] = useState<FolderDialog | null>(null);
+	const [downloading, setDownloading] = useState(false);
 	const [openOverrides, setOpenOverrides] = useState<Record<string, boolean>>({});
 	const setOpen = (id: string, open: boolean) => setOpenOverrides((current) => ({ ...current, [id]: open }));
 
@@ -92,6 +102,18 @@ export function Sidebar({
 	const folderId = searchParams.get("folder");
 	const tag = searchParams.get("tag");
 	const onNotesPage = pathname === "/";
+
+	async function download(selector = "", noteIds: string[] | null = null, folderIds?: ReadonlySet<string>) {
+		if (downloading) return;
+		setDownloading(true);
+		try {
+			await downloadMarkdownExport(store, noteIds, selector, folderIds);
+		} catch (cause) {
+			onError(errorText(cause, "The notes could not be downloaded."));
+		} finally {
+			setDownloading(false);
+		}
+	}
 
 	async function moveFolder(folder: FolderSummary, parentId: string | null) {
 		try {
@@ -232,14 +254,28 @@ export function Sidebar({
 					header={
 						<div className="nav-section nav-section-folders">
 							<span className="nav-label">Folders</span>
-							<button
-								className="tiny-action"
-								title="Create folder"
-								aria-label="Create folder"
-								onClick={() => setDialog({ kind: "create" })}
-							>
-								<PlusIcon size={14} />
-							</button>
+							<div className="folder-header-actions">
+								<button
+									className="tiny-action"
+									title="Collapse all folders"
+									aria-label="Collapse all folders"
+									onClick={() =>
+										setOpenOverrides(
+											Object.fromEntries(folders.map((folder) => [folder.id, false])),
+										)
+									}
+								>
+									<CollapseFoldersIcon size={14} />
+								</button>
+								<button
+									className="tiny-action"
+									title="Create folder"
+									aria-label="Create folder"
+									onClick={() => setDialog({ kind: "create" })}
+								>
+									<PlusIcon size={14} />
+								</button>
+							</div>
 						</div>
 					}
 				/>
@@ -262,12 +298,12 @@ export function Sidebar({
 
 				<div className="sidebar-spacer" />
 				<div className="sidebar-bottom">
-					<a className="nav-link" href="/api/export/markdown">
+					<button className="nav-action" disabled={downloading} onClick={() => void download()}>
 						<span className="nav-icon">
 							<DownloadIcon />
 						</span>
 						<span className="nav-label">Export Markdown</span>
-					</a>
+					</button>
 					<button
 						className="nav-action"
 						onClick={() =>
@@ -307,6 +343,13 @@ export function Sidebar({
 						},
 						{ label: "Rename", onSelect: () => setDialog({ kind: "rename", folder: menu.folder }) },
 						{
+							label: "Download folder",
+							onSelect: () => {
+								const ids = new Set([menu.folder.id, ...descendantIds(folders, menu.folder.id)]);
+								void download(`?folderId=${encodeURIComponent(menu.folder.id)}`, null, ids);
+							},
+						},
+						{
 							label: "Delete",
 							danger: true,
 							onSelect: () =>
@@ -324,6 +367,11 @@ export function Sidebar({
 					anchor={noteMenu.anchor}
 					onClose={() => setNoteMenu(null)}
 					items={[
+						{
+							label: "Download Markdown",
+							onSelect: () =>
+								void download(`?noteId=${encodeURIComponent(noteMenu.note.id)}`, [noteMenu.note.id]),
+						},
 						{
 							label: noteMenu.note.isPinned ? "Unpin" : "Pin",
 							onSelect: () =>

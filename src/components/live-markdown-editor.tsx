@@ -1,5 +1,6 @@
 "use client";
 
+import { selectionWrapping } from "@/lib/live-preview/selection-wrapping";
 import { useEffect, useMemo, useRef } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ReactMarkdown from "react-markdown";
@@ -9,9 +10,19 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView, keymap, placeholder as placeholderExtension } from "@codemirror/view";
 import { convertWikilinks } from "@/components/markdown-preview";
+import { MarkdownCode } from "@/components/markdown-code";
+import { handleCodeCopy, preventCodeCopyFocus } from "@/lib/copy-code";
+import { remarkCodeCopy } from "@/lib/remark-code-copy";
 import { normalizeHref } from "@/lib/urls";
 import type { NoteDetail } from "@/lib/client-types";
-import { blockRenderer, linkClickHandler, livePreviewField, livePreviewKeymap, livePreviewTheme, type BlockRenderer } from "@/lib/live-preview/extension";
+import {
+	blockRenderer,
+	linkClickHandler,
+	livePreviewField,
+	livePreviewKeymap,
+	livePreviewTheme,
+	type BlockRenderer,
+} from "@/lib/live-preview/extension";
 
 interface LiveMarkdownEditorProps {
 	value: string;
@@ -22,7 +33,14 @@ interface LiveMarkdownEditorProps {
 	label: string;
 }
 
-export function LiveMarkdownEditor({ value, onChange, wikilinks, placeholder, maxLength, label }: LiveMarkdownEditorProps) {
+export function LiveMarkdownEditor({
+	value,
+	onChange,
+	wikilinks,
+	placeholder,
+	maxLength,
+	label,
+}: LiveMarkdownEditorProps) {
 	const host = useRef<HTMLDivElement>(null);
 	const viewRef = useRef<EditorView | null>(null);
 	const onChangeRef = useRef(onChange);
@@ -41,10 +59,16 @@ export function LiveMarkdownEditor({ value, onChange, wikilinks, placeholder, ma
 		() => (container, source) => {
 			container.innerHTML = renderToStaticMarkup(
 				<ReactMarkdown
-					remarkPlugins={[remarkGfm]}
+					remarkPlugins={[remarkGfm, remarkCodeCopy]}
 					components={{
+						code: ({ node, ...props }) => (
+							<MarkdownCode {...props} copyable={node?.properties["data-copyable"] === true} />
+						),
 						a: ({ href, children }) => (
-							<a className="cm-rendered-link" href={href ? (normalizeHref(href) ?? undefined) : undefined}>
+							<a
+								className="cm-rendered-link"
+								href={href ? (normalizeHref(href) ?? undefined) : undefined}
+							>
 								{children}
 							</a>
 						),
@@ -53,7 +77,14 @@ export function LiveMarkdownEditor({ value, onChange, wikilinks, placeholder, ma
 					{convertWikilinks(source, wikilinks)}
 				</ReactMarkdown>,
 			);
-			return () => {};
+			container.addEventListener("pointerdown", preventCodeCopyFocus);
+			container.addEventListener("mousedown", preventCodeCopyFocus);
+			container.addEventListener("click", handleCodeCopy);
+			return () => {
+				container.removeEventListener("pointerdown", preventCodeCopyFocus);
+				container.removeEventListener("mousedown", preventCodeCopyFocus);
+				container.removeEventListener("click", handleCodeCopy);
+			};
 		},
 		[wikilinks],
 	);
@@ -69,6 +100,7 @@ export function LiveMarkdownEditor({ value, onChange, wikilinks, placeholder, ma
 				doc: initialValue.current,
 				extensions: [
 					history(),
+					selectionWrapping,
 					keymap.of([...defaultKeymap, ...historyKeymap]),
 					markdown({ base: markdownLanguage }),
 					EditorView.lineWrapping,
@@ -81,7 +113,9 @@ export function LiveMarkdownEditor({ value, onChange, wikilinks, placeholder, ma
 					linkClickHandler((target) => {
 						let href: string | null = null;
 						if (target.kind === "wiki") {
-							const id = wikilinksRef.current.find((l) => l.rawTargetTitle === target.title)?.targetNoteId;
+							const id = wikilinksRef.current.find(
+								(l) => l.rawTargetTitle === target.title,
+							)?.targetNoteId;
 							href = id ? `/notes/${encodeURIComponent(id)}` : null;
 						} else {
 							href = normalizeHref(target.href);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMarkdownExportEntries, sanitizeExportSegment } from "@/lib/markdown-export";
+import { buildExportFolderPaths, buildMarkdownExportEntries, sanitizeExportSegment } from "@/lib/markdown-export";
 
 const createdAt = new Date("2026-10-12T00:00:00.000Z");
 
@@ -54,4 +54,40 @@ describe("Markdown export generation", () => {
 			"Untitled note-three.md",
 		]);
 	});
+});
+
+describe("folder export paths", () => {
+	it("preserves nesting and separates folders whose names sanitize to the same segment", () => {
+		const paths = buildExportFolderPaths([
+			{ id: "a", name: "Work/notes", parentId: null },
+			{ id: "b", name: "Work:notes", parentId: null },
+			{ id: "c", name: "Child", parentId: "b" },
+		]);
+		expect(paths.get("a")).toEqual(["Work-notes"]);
+		expect(paths.get("b")).toEqual(["Work-notes-b"]);
+		expect(paths.get("c")).toEqual(["Work-notes-b", "Child"]);
+	});
+
+	it("keeps note filenames distinct from directory paths", () => {
+		const [entry] = buildMarkdownExportEntries(
+			[
+				{
+					id: "one",
+					title: "Child",
+					contentMarkdown: "",
+					folderPath: ["Work"],
+					tags: [],
+					createdAt,
+					updatedAt: createdAt,
+				},
+			],
+			["Work/Child.md"],
+		);
+		expect(entry.path).toBe("Work/Child-one.md");
+	});
+});
+
+it("keeps full-export guide filenames distinct from root directories", () => {
+	const paths = buildExportFolderPaths([{ id: "guide", name: "README.md", parentId: null }], ["README.md"]);
+	expect(paths.get("guide")).toEqual(["README.md-guide"]);
 });

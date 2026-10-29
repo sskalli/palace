@@ -38,7 +38,8 @@ function withSelection(state: EditorState, anchor: number, head = anchor) {
 function widgets(state: EditorState) {
 	const found: { from: number; to: number }[] = [];
 	const cursor = state.field(livePreviewField).iter();
-	for (; cursor.value; cursor.next()) if (cursor.value.spec.widget) found.push({ from: cursor.from, to: cursor.to });
+	for (; cursor.value; cursor.next())
+		if (cursor.value.spec.widget && cursor.value.spec.block) found.push({ from: cursor.from, to: cursor.to });
 	return found;
 }
 
@@ -114,6 +115,45 @@ describe("fenced code", () => {
 		expect(() => collectLiveSyntax(withSelection(state, unclosed.length))).not.toThrow();
 		expect(widgets(make("```"))).toEqual([]);
 	});
+
+	it.each([
+		["```ts\nfirst\nlast\n```", "first\nlast\n"],
+		["```\n```", ""],
+		["  ```\n  text\n  ```", "text\n"],
+		["   ```\n one\n    two\n   ```", "one\n two\n"],
+		["  ```\n\ttext\n  ```", "  text\n"],
+	])("copies the entire content of active fence %s", (doc, expected) => {
+		const state = make(doc, doc.indexOf("```") + 1);
+		const copies: string[] = [];
+		const cursor = state.field(livePreviewField).iter();
+		for (; cursor.value; cursor.next()) {
+			if (cursor.value.spec.widget && !cursor.value.spec.block) copies.push(cursor.value.spec.widget.source);
+		}
+		expect(copies).toEqual([expected]);
+		expect(widgets(state)).toEqual([]);
+	});
+
+	it.each([
+		"```",
+		"``` something",
+		"```ts\nlast content line",
+		"```ts\nfirst\nlast",
+		"````\nbody\n```",
+		"~~~js\nbody\n```",
+	])("omits copy controls until the fence is closed: %s", (doc) => {
+		const state = make(doc, doc.length);
+		const cursor = state.field(livePreviewField).iter();
+		for (; cursor.value; cursor.next()) expect(cursor.value.spec.widget).toBeUndefined();
+	});
+
+	it("adds and removes the control as the closing fence is typed and deleted", () => {
+		const doc = "```js\nbody\n";
+		const open = make(doc, doc.length);
+		const closed = open.update({ changes: { from: doc.length, insert: "```" } }).state;
+		expect(closed.field(livePreviewField).size).toBe(1);
+		const reopened = closed.update({ changes: { from: doc.length, to: doc.length + 3 } }).state;
+		expect(reopened.field(livePreviewField).size).toBe(0);
+	});
 });
 
 describe("inline code", () => {
@@ -137,6 +177,23 @@ describe("inline code", () => {
 		expect(hiddenMarks(withSelection(state, doc.length))).toHaveLength(4);
 		const listDoc = "- item `x`\n\nplain";
 		expect(hiddenMarks(make(listDoc, listDoc.length))).toEqual(["`", "`"]);
+	});
+
+	it("keeps copy controls available and copies code without its delimiters", () => {
+		for (const selection of [0, doc.indexOf("code") + 1]) {
+			const state = make(doc, selection);
+			const copies: string[] = [];
+			const cursor = state.field(livePreviewField).iter();
+			for (; cursor.value; cursor.next()) {
+				if (cursor.value.spec.widget && !cursor.value.spec.block) copies.push(cursor.value.spec.widget.source);
+			}
+			expect(copies).toEqual(["code", "x`y"]);
+		}
+	});
+
+	it.each(["a `unfinished", "a ``unfinished`"])("omits copy controls for unmatched inline delimiters: %s", (doc) => {
+		const state = make(doc, doc.length);
+		expect(state.field(livePreviewField).size).toBe(0);
 	});
 });
 
@@ -192,8 +249,9 @@ describe("preview mode", () => {
 		);
 		expect(html).toContain("<table>");
 		expect(html).toContain("<ul>");
-		expect(html).toContain("<pre><code");
+		expect(html).toContain('<pre><span class="code-snippet"><code');
 		expect(html).toContain("<code>inline</code>");
+		expect(html).toContain('aria-label="Copy code"');
 		expect(html).not.toContain("| Feature");
 		expect(html).not.toContain("```");
 	});
@@ -206,6 +264,23 @@ describe("preview mode", () => {
 			}),
 		);
 		expect(html).toContain('href="/notes/n1"');
+	});
+
+	it.each(["``` something", "```js\nbody", "````js\nbody\n```", "text `unclosed"])(
+		"omits preview copy controls for unfinished code: %s",
+		(content) => {
+			const html = renderToStaticMarkup(createElement(MarkdownPreview, { content, wikilinks: [] }));
+			expect(html).not.toContain("data-copy-code");
+		},
+	);
+
+	it("uses a clipboard icon without a visible Copy label for closed code", () => {
+		const html = renderToStaticMarkup(
+			createElement(MarkdownPreview, { content: "`inline`\n\n```js\nbody\n```", wikilinks: [] }),
+		);
+		expect(html.match(/data-copy-code/g)).toHaveLength(2);
+		expect(html).toContain('<svg width="14"');
+		expect(html).not.toContain(">Copy<");
 	});
 });
 

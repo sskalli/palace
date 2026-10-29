@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type FocusEvent } from "react";
 import {
 	ArchiveIcon,
+	DownloadIcon,
 	EyeIcon,
 	ExpandIcon,
 	ShrinkIcon,
@@ -21,6 +22,7 @@ import { useFolders } from "@/components/folders-context";
 import { folderPath } from "@/lib/folder-tree";
 import { TagEditor } from "@/components/tag-editor";
 import { useNoteEditor, type SaveState } from "@/hooks/use-note-editor";
+import { downloadMarkdownExport } from "@/lib/download-export";
 
 const SAVE_LABELS: Record<SaveState, string> = { saved: "Saved", saving: "Saving…", failed: "Save failed" };
 
@@ -31,6 +33,8 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 	const folders = useFolders();
 	const [preview, setPreview] = useState(false);
 	const [wide, setWide] = useState(false);
+	const [downloading, setDownloading] = useState(false);
+	const [downloadError, setDownloadError] = useState("");
 	const pageTitle = draft?.title.trim() || "Untitled note";
 	useEffect(() => {
 		if (draft) document.title = `${pageTitle} · Palace`;
@@ -112,9 +116,33 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 					<div className="editor-toolbar-right">
 						<button
 							className="icon-button"
+							title="Download Markdown"
+							aria-label="Download Markdown"
+							disabled={downloading}
+							onClick={async () => {
+								setDownloading(true);
+								setDownloadError("");
+								try {
+									await downloadMarkdownExport(
+										store,
+										[noteId],
+										`?noteId=${encodeURIComponent(noteId)}`,
+									);
+								} catch (cause) {
+									setDownloadError(errorText(cause, "The note could not be downloaded."));
+								} finally {
+									setDownloading(false);
+								}
+							}}
+						>
+							<DownloadIcon />
+						</button>
+						<button
+							className="icon-button"
 							title={widthLabel}
 							aria-label={widthLabel}
 							aria-pressed={wide}
+							data-editor-width-toggle=""
 							onClick={() => setWide((value) => !value)}
 						>
 							{wide ? <ShrinkIcon /> : <ExpandIcon />}
@@ -155,6 +183,11 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 						)}
 					</div>
 				</div>
+				{downloadError && (
+					<div className="message-error message-spaced" role="alert">
+						{downloadError}
+					</div>
+				)}
 				{saveState === "failed" && saveError && (
 					<div className="message-error message-spaced" role="alert">
 						{saveError}
@@ -162,10 +195,13 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 				)}
 
 				<div className="note-path" aria-label="Note location">
-					{[
-						...folderPath(folders, folderId).map((folder) => folder.name),
-						draft.title.trim() || "Untitled note",
-					].join(" / ")}
+					{folderPath(folders, folderId).map((folder) => (
+						<span key={folder.id}>
+							<Link href={`/?view=all&folder=${encodeURIComponent(folder.id)}`}>{folder.name}</Link>
+							<span aria-hidden="true"> / </span>
+						</span>
+					))}
+					<span aria-current="page">{draft.title.trim() || "Untitled note"}</span>
 				</div>
 				<article className="editor-paper">
 					<input
