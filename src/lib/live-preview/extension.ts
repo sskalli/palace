@@ -2,7 +2,7 @@ import { syntaxTree } from "@codemirror/language";
 import { EditorSelection, Facet, Prec, StateField, type EditorState, type Range } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType, keymap, type DecorationSet } from "@codemirror/view";
 import { collectLiveSyntax, type BlockKind, type LiveSyntax } from "./blocks";
-import { codeCopyButton, copyCode } from "@/lib/copy-code";
+import { codeCopyButton, copyCode, setCodeCopyState } from "@/lib/copy-code";
 
 /** Renders markdown `source` into `container` and returns a cleanup function. */
 export type BlockRenderer = (container: HTMLElement, source: string) => () => void;
@@ -142,9 +142,7 @@ class CodeCopyWidget extends WidgetType {
 		const button = document.createElement("button");
 		button.type = "button";
 		button.className = "code-copy-button cm-code-copy";
-		button.textContent = "Copy";
-		button.setAttribute("aria-label", "Copy code");
-		button.title = "Copy code";
+		setCodeCopyState(button, "ready");
 		button.dataset.copyCode = "";
 		for (const type of ["pointerdown", "mousedown"])
 			button.addEventListener(type, (event) => {
@@ -193,7 +191,7 @@ export function buildDecorations(state: EditorState, spans = collectLiveSyntax(s
 
 	for (const block of blocks) {
 		if (block.active || block.closed === false) {
-			if (block.kind === "code") {
+			if (block.kind === "code" && block.closed) {
 				const firstLine = state.doc.lineAt(block.from);
 				const lastLine = state.doc.lineAt(block.to);
 				const end = block.closed ? lastLine.from : block.to;

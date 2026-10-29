@@ -11,6 +11,7 @@ import { EditorView, keymap, placeholder as placeholderExtension } from "@codemi
 import { convertWikilinks } from "@/components/markdown-preview";
 import { MarkdownCode } from "@/components/markdown-code";
 import { handleCodeCopy, preventCodeCopyFocus } from "@/lib/copy-code";
+import { remarkCodeCopy } from "@/lib/remark-code-copy";
 import { normalizeHref } from "@/lib/urls";
 import type { NoteDetail } from "@/lib/client-types";
 import {
@@ -57,9 +58,11 @@ export function LiveMarkdownEditor({
 		() => (container, source) => {
 			container.innerHTML = renderToStaticMarkup(
 				<ReactMarkdown
-					remarkPlugins={[remarkGfm]}
+					remarkPlugins={[remarkGfm, remarkCodeCopy]}
 					components={{
-						code: MarkdownCode,
+						code: ({ node, ...props }) => (
+							<MarkdownCode {...props} copyable={node?.properties["data-copyable"] === true} />
+						),
 						a: ({ href, children }) => (
 							<a
 								className="cm-rendered-link"

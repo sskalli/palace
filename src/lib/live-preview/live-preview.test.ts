@@ -117,14 +117,10 @@ describe("fenced code", () => {
 	});
 
 	it.each([
-		["```", ""],
-		["```ts\nlast content line", "last content line"],
-		["```ts\nfirst\nlast", "first\nlast"],
 		["```ts\nfirst\nlast\n```", "first\nlast\n"],
 		["```\n```", ""],
 		["  ```\n  text\n  ```", "text\n"],
 		["   ```\n one\n    two\n   ```", "one\n two\n"],
-		["  ```\n  first\n  last", "first\nlast"],
 		["  ```\n\ttext\n  ```", "  text\n"],
 	])("copies the entire content of active fence %s", (doc, expected) => {
 		const state = make(doc, doc.indexOf("```") + 1);
@@ -135,6 +131,28 @@ describe("fenced code", () => {
 		}
 		expect(copies).toEqual([expected]);
 		expect(widgets(state)).toEqual([]);
+	});
+
+	it.each([
+		"```",
+		"``` something",
+		"```ts\nlast content line",
+		"```ts\nfirst\nlast",
+		"````\nbody\n```",
+		"~~~js\nbody\n```",
+	])("omits copy controls until the fence is closed: %s", (doc) => {
+		const state = make(doc, doc.length);
+		const cursor = state.field(livePreviewField).iter();
+		for (; cursor.value; cursor.next()) expect(cursor.value.spec.widget).toBeUndefined();
+	});
+
+	it("adds and removes the control as the closing fence is typed and deleted", () => {
+		const doc = "```js\nbody\n";
+		const open = make(doc, doc.length);
+		const closed = open.update({ changes: { from: doc.length, insert: "```" } }).state;
+		expect(closed.field(livePreviewField).size).toBe(1);
+		const reopened = closed.update({ changes: { from: doc.length, to: doc.length + 3 } }).state;
+		expect(reopened.field(livePreviewField).size).toBe(0);
 	});
 });
 
@@ -171,6 +189,11 @@ describe("inline code", () => {
 			}
 			expect(copies).toEqual(["code", "x`y"]);
 		}
+	});
+
+	it.each(["a `unfinished", "a ``unfinished`"])("omits copy controls for unmatched inline delimiters: %s", (doc) => {
+		const state = make(doc, doc.length);
+		expect(state.field(livePreviewField).size).toBe(0);
 	});
 });
 
@@ -241,6 +264,23 @@ describe("preview mode", () => {
 			}),
 		);
 		expect(html).toContain('href="/notes/n1"');
+	});
+
+	it.each(["``` something", "```js\nbody", "````js\nbody\n```", "text `unclosed"])(
+		"omits preview copy controls for unfinished code: %s",
+		(content) => {
+			const html = renderToStaticMarkup(createElement(MarkdownPreview, { content, wikilinks: [] }));
+			expect(html).not.toContain("data-copy-code");
+		},
+	);
+
+	it("uses a clipboard icon without a visible Copy label for closed code", () => {
+		const html = renderToStaticMarkup(
+			createElement(MarkdownPreview, { content: "`inline`\n\n```js\nbody\n```", wikilinks: [] }),
+		);
+		expect(html.match(/data-copy-code/g)).toHaveLength(2);
+		expect(html).toContain('<svg width="14"');
+		expect(html).not.toContain(">Copy<");
 	});
 });
 

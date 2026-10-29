@@ -7,6 +7,7 @@ import { normalizeHref } from "@/lib/urls";
 import type { NoteDetail } from "@/lib/client-types";
 import { MarkdownCode } from "@/components/markdown-code";
 import { handleCodeCopy, preventCodeCopyFocus } from "@/lib/copy-code";
+import { remarkCodeCopy } from "@/lib/remark-code-copy";
 
 interface MarkdownPreviewProps {
 	content: string;
@@ -38,9 +39,11 @@ export function MarkdownPreview({ content, wikilinks }: MarkdownPreviewProps) {
 			onClick={handleCodeCopy}
 		>
 			<ReactMarkdown
-				remarkPlugins={[remarkGfm]}
+				remarkPlugins={[remarkGfm, remarkCodeCopy]}
 				components={{
-					code: MarkdownCode,
+					code: ({ node, ...props }) => (
+						<MarkdownCode {...props} copyable={node?.properties["data-copyable"] === true} />
+					),
 					a: ({ href, children }) =>
 						href?.startsWith("/notes/") ? (
 							<Link href={href}>{children}</Link>
