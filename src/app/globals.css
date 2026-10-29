@@ -166,6 +166,11 @@ textarea:focus-visible {
 	justify-content: space-between;
 	margin-top: 0;
 }
+.folder-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
 .folder-tree {
 	margin-top: 25px;
 }
