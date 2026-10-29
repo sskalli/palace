@@ -1600,3 +1600,8 @@ textarea:focus-visible {
 	font-size: 12px;
 	overflow-wrap: anywhere;
 }
+.note-path a:hover,
+.note-path a:focus-visible {
+	color: var(--accent);
+	text-decoration: underline;
+}

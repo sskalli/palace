@@ -162,10 +162,13 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 				)}
 
 				<div className="note-path" aria-label="Note location">
-					{[
-						...folderPath(folders, folderId).map((folder) => folder.name),
-						draft.title.trim() || "Untitled note",
-					].join(" / ")}
+					{folderPath(folders, folderId).map((folder) => (
+						<span key={folder.id}>
+							<Link href={`/?view=all&folder=${encodeURIComponent(folder.id)}`}>{folder.name}</Link>
+							<span aria-hidden="true"> / </span>
+						</span>
+					))}
+					<span aria-current="page">{draft.title.trim() || "Untitled note"}</span>
 				</div>
 				<article className="editor-paper">
 					<input
