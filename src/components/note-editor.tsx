@@ -115,6 +115,7 @@ export function NoteEditor({ noteId }: { noteId: string }) {
 							title={widthLabel}
 							aria-label={widthLabel}
 							aria-pressed={wide}
+							data-editor-width-toggle=""
 							onClick={() => setWide((value) => !value)}
 						>
 							{wide ? <ShrinkIcon /> : <ExpandIcon />}
