@@ -1,5 +1,6 @@
 "use client";
 
+import { selectionWrapping } from "@/lib/live-preview/selection-wrapping";
 import { useEffect, useMemo, useRef } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ReactMarkdown from "react-markdown";
@@ -9,7 +10,6 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView, keymap, placeholder as placeholderExtension } from "@codemirror/view";
 import { convertWikilinks } from "@/components/markdown-preview";
-import { selectionWrapping } from "@/lib/live-preview/selection-wrapping";
 import { normalizeHref } from "@/lib/urls";
 import type { NoteDetail } from "@/lib/client-types";
 import {
