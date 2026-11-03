@@ -258,7 +258,7 @@ export function FolderTree({
 			}}
 		>
 			{header}
-			<nav className="nav-list">
+			<nav className="nav-list" aria-label="Folders and notes" tabIndex={0}>
 				{tree.map((node) => renderBranch(node, 0))}
 				{rootNotes.map((note) => renderNote(note, -1))}
 				{folders.length === 0 && rootNotes.length === 0 && (
