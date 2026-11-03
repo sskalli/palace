@@ -57,6 +57,31 @@ describe("external drop traversal", () => {
 			["Work (1)", "b.md"],
 		]);
 	});
+	it("ignores deep non-Markdown branches but rejects deep Markdown paths", async () => {
+		const nested = (leaf: FileSystemEntry) => {
+			let branch = leaf;
+			for (let depth = 0; depth < 22; depth++) branch = directory(`Level ${depth}`, [[branch]]);
+			return branch;
+		};
+		const result = await collectMarkdownDrop([
+			{
+				entry: directory("Work", [
+					[
+						fileEntry("README.md"),
+						nested(directory("Empty", [])),
+						nested(fileEntry("photo.png")),
+					],
+				]),
+				file: null,
+			},
+		]);
+		expect(result.files.map((file) => file.path)).toEqual([["Work", "README.md"]]);
+		expect(result.skipped).toBe(1);
+
+		await expect(
+			collectMarkdownDrop([{ entry: directory("Work", [[nested(fileEntry("deep.md"))]]), file: null }]),
+		).rejects.toThrow("Use at most 20 nested folders.");
+	});
 	it("falls back to ordinary files when directory entries are unavailable", async () => {
 		const file = new File(["---\nhello\n"], "hello.md");
 		const result = await collectMarkdownDrop(

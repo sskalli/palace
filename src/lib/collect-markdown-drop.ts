@@ -59,7 +59,6 @@ export async function collectMarkdownDrop(
 	const visit = async (entry: Entry, ancestors: string[], name = entry.name) => {
 		tick();
 		const path = [...ancestors, name];
-		if (path.length > IMPORT_LIMITS.depth + 1) throw new MarkdownImportError("Use at most 20 nested folders.");
 		if (entry.isFile) {
 			if (!isMarkdownFile(entry.name)) {
 				skipped++;
