@@ -192,6 +192,13 @@ export function Sidebar({
 			<aside
 				className={`sidebar${drawerOpen ? " open" : ""}${menu || noteMenu || dragging ? " expanded" : ""}`}
 				aria-label="Main navigation"
+				onScrollCapture={(event) => {
+					// The menu uses a captured viewport position, which becomes stale when its row scrolls.
+					if (event.target instanceof Element && event.target.closest(".folder-tree")) {
+						setMenu(null);
+						setNoteMenu(null);
+					}
+				}}
 				onClick={(event) => {
 					if (event.target instanceof Element && event.target.closest("a")) onCloseDrawer();
 				}}
