@@ -3,6 +3,7 @@
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { replaceWikilinks } from "@/lib/wikilinks";
 import { normalizeHref } from "@/lib/urls";
 import type { NoteDetail } from "@/lib/client-types";
 import { MarkdownCode } from "@/components/markdown-code";
@@ -16,7 +17,7 @@ interface MarkdownPreviewProps {
 
 export function convertWikilinks(content: string, wikilinks: NoteDetail["wikilinks"]): string {
 	const linksByTitle = new Map(wikilinks.map((link) => [link.rawTargetTitle, link]));
-	return content.replace(/\[\[([^\]\r\n]+)\]\]/g, (_match, raw: string) => {
+	return replaceWikilinks(content, (raw) => {
 		const target = raw.trim();
 		const resolved = linksByTitle.get(target);
 		if (!target) return "\\[\\[\\]\\]";
