@@ -283,7 +283,7 @@ export function Sidebar({
 				<div className="nav-section nav-section-tags">
 					<span className="nav-label">Tags</span>
 				</div>
-				<div className="tag-list">
+				<div className="tag-list" role="region" aria-label="Tags" tabIndex={0}>
 					{tags.map((item) => (
 						<Link
 							key={item.id}
@@ -296,7 +296,6 @@ export function Sidebar({
 					{tags.length === 0 && <span className="muted-text">Add tags from a note</span>}
 				</div>
 
-				<div className="sidebar-spacer" />
 				<div className="sidebar-bottom">
 					<button className="nav-action" disabled={downloading} onClick={() => void download()}>
 						<span className="nav-icon">

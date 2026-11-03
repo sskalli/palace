@@ -90,7 +90,11 @@ textarea:focus-visible {
 	padding: 24px 16px 16px;
 	background: var(--bg-sidebar);
 	border-right: 1px solid var(--border-subtle);
+	overflow: hidden;
 	transition: transform 0.2s ease;
+}
+.sidebar > * {
+	flex-shrink: 0;
 }
 .brand {
 	display: flex;
@@ -171,8 +175,25 @@ textarea:focus-visible {
 	align-items: center;
 	gap: 4px;
 }
-.folder-tree {
+.sidebar > .folder-tree {
+	display: flex;
+	flex: 1 1 0;
+	flex-direction: column;
+	min-height: 64px;
 	margin-top: 25px;
+}
+.folder-tree > .nav-section {
+	flex-shrink: 0;
+}
+.folder-tree > .nav-list {
+	display: block;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior-y: contain;
+	scrollbar-width: thin;
+}
+.folder-tree > .nav-list > * + * {
+	margin-top: 2px;
 }
 .nav-section-tags {
 	margin-top: 24px;
@@ -284,14 +305,18 @@ textarea:focus-visible {
 	flex-wrap: wrap;
 	gap: 6px;
 	padding: 4px 8px;
-}
-.sidebar-spacer {
-	flex: 1;
-	min-height: 30px;
+	flex: 0 1 auto;
+	align-content: flex-start;
+	min-height: 36px;
+	max-height: min(20dvh, 160px);
+	overflow-y: auto;
+	overscroll-behavior-y: contain;
+	scrollbar-width: thin;
 }
 .sidebar-bottom {
 	display: grid;
 	gap: 4px;
+	margin-top: 16px;
 	padding-top: 12px;
 	border-top: 1px solid var(--border-subtle);
 }
@@ -1156,6 +1181,62 @@ textarea:focus-visible {
 	place-items: center;
 	color: var(--text-muted);
 	font-size: 13px;
+}
+
+/* Keep the fixed sections usable on short desktop windows and landscape phones. */
+@media (max-height: 700px) {
+	.sidebar {
+		padding-block: 12px 8px;
+	}
+	.sidebar .brand {
+		padding-bottom: 12px;
+	}
+	.sidebar .new-note-button {
+		margin-bottom: 4px;
+	}
+	.sidebar > .folder-tree {
+		margin-top: 12px;
+	}
+	.sidebar .nav-section-tags {
+		margin-top: 12px;
+	}
+	.sidebar .sidebar-bottom {
+		margin-top: 8px;
+		padding-top: 8px;
+	}
+	.sidebar .user-panel {
+		padding-top: 6px;
+	}
+}
+
+@media (max-height: 600px) {
+	.sidebar {
+		padding-block: 6px;
+	}
+	.sidebar .brand {
+		padding-bottom: 0;
+	}
+	.sidebar .new-note-button {
+		margin-bottom: 0;
+	}
+	.sidebar .nav-section {
+		margin-block: 3px;
+	}
+	.sidebar > .folder-tree {
+		margin-top: 4px;
+	}
+	.sidebar .nav-link,
+	.sidebar .nav-action {
+		min-height: 28px;
+	}
+	.sidebar .sidebar-bottom {
+		gap: 0;
+		margin-top: 4px;
+		padding-top: 6px;
+	}
+	.sidebar .user-panel {
+		padding-block: 0;
+	}
 }
 
 @media (min-width: 701px) {
