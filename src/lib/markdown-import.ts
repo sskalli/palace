@@ -104,7 +104,7 @@ export function availableImportName(name: string, used: Set<string>, maxLength: 
 	let suffix = 1;
 	while (used.has(candidate.toLocaleLowerCase())) {
 		const ending = ` (${suffix++})`;
-		candidate = base.slice(0, maxLength - ending.length) + ending;
+		candidate = base.slice(0, maxLength - ending.length).replace(/[\uD800-\uDBFF]$/, "") + ending;
 	}
 	used.add(candidate.toLocaleLowerCase());
 	return candidate;
