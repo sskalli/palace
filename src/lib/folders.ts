@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 /** A folder rule violation that should be reported to the user with this HTTP status. */
 export class FolderError extends Error {
@@ -26,7 +26,10 @@ export async function ensureNameFree(
 }
 
 export function folderErrorResponse(error: unknown): Response | null {
-	return error instanceof FolderError ? Response.json({ error: error.message }, { status: error.status }) : null;
+	if (error instanceof FolderError) return Response.json({ error: error.message }, { status: error.status });
+	if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")
+		return Response.json({ error: "A folder with this name already exists here." }, { status: 409 });
+	return null;
 }
 
 /** The user's folder `id` and every folder below it (empty when the folder is not theirs), via one recursive query. */

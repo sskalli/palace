@@ -77,8 +77,12 @@ export async function importMarkdown(userId: string, input: MarkdownImport): Pro
 				{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30_000 },
 			);
 		} catch (error) {
-			// Serializable conflicts can occur when another import/create chooses a sibling name.
-			if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034" && attempt < 2)
+			// Serializable conflicts and sibling-name uniqueness violations are safe to retry.
+			if (
+				error instanceof Prisma.PrismaClientKnownRequestError &&
+				(error.code === "P2034" || error.code === "P2002") &&
+				attempt < 2
+			)
 				continue;
 			throw error;
 		}

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 const mocks = vi.hoisted(() => ({ transaction: vi.fn(), links: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({ prisma: { $transaction: mocks.transaction } }));
 vi.mock("@/lib/notes", () => ({
@@ -76,6 +77,18 @@ describe("atomic owned Markdown imports", () => {
 		expect(tx.note.create.mock.calls.map(([query]) => query.data.title)).toEqual(["A (2)", "a (3)", "A (2)"]);
 		for (const [query] of [...tx.folder.findMany.mock.calls, ...tx.note.findMany.mock.calls])
 			expect(query.where.userId).toBe("owner");
+	});
+	it("retries a folder sibling uniqueness race and chooses a suffix", async () => {
+		tx.folder.create.mockRejectedValueOnce(
+			new Prisma.PrismaClientKnownRequestError("Duplicate folder", { code: "P2002", clientVersion: "6.12.0" }),
+		);
+		tx.folder.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([{ name: "Work" }]);
+		await importMarkdown("owner", {
+			folderId: null,
+			files: [{ path: ["Work", "a.md"], content: "" }],
+		});
+		expect(mocks.transaction).toHaveBeenCalledTimes(2);
+		expect(tx.folder.create.mock.calls.map(([query]) => query.data.name)).toEqual(["Work", "Work (1)"]);
 	});
 	it("lets a write failure reject the entire transaction and stops further creation", async () => {
 		tx.note.create.mockRejectedValue(new Error("Database failure"));

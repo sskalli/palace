@@ -33,6 +33,7 @@ model Folder {
   notes     Note[]
 
   @@index([userId, parentId])
+  @@unique([userId, parentId, name])
 }
 
 model Note {
