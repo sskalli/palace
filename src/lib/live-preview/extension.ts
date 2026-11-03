@@ -1,3 +1,4 @@
+import { scanWikilinks } from "@/lib/wikilinks";
 import { syntaxTree } from "@codemirror/language";
 import { EditorSelection, Facet, Prec, StateField, type EditorState, type Range } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType, keymap, type DecorationSet } from "@codemirror/view";
@@ -16,11 +17,49 @@ export type LinkTarget = { kind: "wiki"; title: string } | { kind: "url"; href: 
 
 /** Finds the `[[wikilink]]` or `[text](url)` covering `offset` in a single line of source. */
 export function findLinkAt(text: string, offset: number): LinkTarget | null {
-	for (const m of text.matchAll(/\[\[([^\]\r\n]+)\]\]/g)) {
-		if (offset >= m.index && offset <= m.index + m[0].length) return { kind: "wiki", title: m[1].trim() };
+	for (const m of scanWikilinks(text)) {
+		if (offset >= m.index && offset <= m.end) return { kind: "wiki", title: m.raw.trim() };
 	}
-	for (const m of text.matchAll(/\[[^\]\r\n]*\]\(\s*<?([^)\s>]+)>?[^)\r\n]*\)/g)) {
-		if (offset >= m.index && offset <= m.index + m[0].length) return { kind: "url", href: m[1] };
+	return findMarkdownLinkAt(text, offset);
+}
+
+/** The existing [label](URL) grammar, with bounded scans even for malformed destinations. */
+function findMarkdownLinkAt(text: string, offset: number): LinkTarget | null {
+	if (!text.includes("](")) return null;
+	const targetStops = new Uint32Array(text.length + 1);
+	const tailStops = new Uint32Array(text.length + 1);
+	targetStops[text.length] = tailStops[text.length] = text.length;
+	// A destination can contain more '[' openers. Reuse terminator positions rather
+	// than rescanning the same malformed URL for every potential label before it.
+	for (let i = text.length - 1; i >= 0; i--) {
+		targetStops[i] = /[)\s>]/.test(text[i]) ? i : targetStops[i + 1];
+		tailStops[i] = text[i] === ")" || text[i] === "\r" || text[i] === "\n" ? i : tailStops[i + 1];
+	}
+	let cursor = 0;
+	while (cursor < text.length) {
+		const index = text.indexOf("[", cursor);
+		if (index < 0) break;
+		let labelEnd = index + 1;
+		while (labelEnd < text.length && text[labelEnd] !== "]" && text[labelEnd] !== "\r" && text[labelEnd] !== "\n")
+			labelEnd++;
+		if (text[labelEnd] === "]" && text[labelEnd + 1] === "(") {
+			let start = labelEnd + 2;
+			while (start < text.length && /\s/.test(text[start])) start++;
+			// Match optional '<' greedily, but preserve the old fallback where '<'
+			// itself is the nonempty target (for example [label](< >)).
+			if (text[start] === "<" && start + 1 < text.length && targetStops[start + 1] > start + 1) start++;
+			const targetEnd = targetStops[start];
+			if (targetEnd > start) {
+				const close = tailStops[targetEnd];
+				if (text[close] === ")") {
+					if (offset >= index && offset <= close + 1)
+						return { kind: "url", href: text.slice(start, targetEnd) };
+					cursor = close + 1;
+					continue;
+				}
+			}
+		}
+		cursor = labelEnd + 1;
 	}
 	return null;
 }

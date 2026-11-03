@@ -1,3 +1,4 @@
+import { scanWikilinks } from "@/lib/wikilinks";
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import type { EditorState, SelectionRange, Text } from "@codemirror/state";
 
@@ -170,9 +171,9 @@ export function collectLiveSyntax(state: EditorState): LiveSyntax {
 	const covered = [...blocks, ...inlineCode].sort((a, b) => a.from - b.from);
 	let coveredIndex = 0;
 	const text = state.doc.toString();
-	for (const match of text.matchAll(/\[\[([^\]\r\n]+)\]\]/g)) {
+	for (const match of scanWikilinks(text)) {
 		const from = match.index;
-		const to = from + match[0].length;
+		const to = match.end;
 		while (coveredIndex < covered.length && covered[coveredIndex].to <= from) coveredIndex++;
 		if (coveredIndex < covered.length && from < covered[coveredIndex].to && to > covered[coveredIndex].from)
 			continue;
