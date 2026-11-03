@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { WorkspaceImport } from "@/components/workspace-import";
 import { Sidebar } from "@/components/sidebar";
 import { FoldersProvider } from "@/components/folders-context";
 import { Topbar } from "@/components/topbar";
@@ -102,6 +103,11 @@ export function AppShell({ children, email, userId }: { children: React.ReactNod
 	return (
 		<NoteStoreContext value={noteStore}>
 			<div className="app-frame">
+				<WorkspaceImport
+					folderId={currentFolderId}
+					folderName={folders.find((folder) => folder.id === currentFolderId)?.name}
+					onImported={reload}
+				/>
 				{drawerOpen && (
 					<button
 						className="sidebar-scrim"
