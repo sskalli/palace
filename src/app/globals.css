@@ -1642,6 +1642,16 @@ textarea:focus-visible {
 	opacity: 0;
 	pointer-events: none;
 }
+.preview-content :not(pre) > .code-snippet > .code-copy-button {
+	left: 100%;
+	right: auto;
+	top: auto;
+	bottom: 0;
+}
+.cm-code-copy-anchor:not(.cm-code-copy-block) > .code-copy-button {
+	left: 0;
+	right: auto;
+}
 .code-snippet:hover > .code-copy-button,
 .code-snippet:focus-within > .code-copy-button,
 .cm-code-copy-anchor.is-code-hovered > .code-copy-button,
