@@ -56,6 +56,14 @@ it("returns an owned folder on a repeated creation ID without another write", as
 	expect(mocks.folderCreate).not.toHaveBeenCalled();
 	expect(mocks.folderFind).toHaveBeenCalledWith(expect.objectContaining({ where: { id, userId: "user" } }));
 });
+it("reports a concurrent sibling folder-name conflict", async () => {
+	mocks.folderFind.mockResolvedValue(null);
+	mocks.folderCreate.mockRejectedValue(
+		new Prisma.PrismaClientKnownRequestError("Duplicate folder", { code: "P2002", clientVersion: "6.12.0" }),
+	);
+	const response = await createFolder(request({ name: "Projects" }));
+	expect(response.status).toBe(409);
+});
 it("rejects invalid client IDs and injected ownership fields", async () => {
 	expect((await createNote(request({ id: "bad" }))).status).toBe(400);
 	expect((await createFolder(request({ name: "Projects", userId: "other" }))).status).toBe(400);

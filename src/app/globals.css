@@ -90,7 +90,11 @@ textarea:focus-visible {
 	padding: 24px 16px 16px;
 	background: var(--bg-sidebar);
 	border-right: 1px solid var(--border-subtle);
+	overflow: hidden;
 	transition: transform 0.2s ease;
+}
+.sidebar > * {
+	flex-shrink: 0;
 }
 .brand {
 	display: flex;
@@ -171,8 +175,25 @@ textarea:focus-visible {
 	align-items: center;
 	gap: 4px;
 }
-.folder-tree {
+.sidebar > .folder-tree {
+	display: flex;
+	flex: 1 1 0;
+	flex-direction: column;
+	min-height: 64px;
 	margin-top: 25px;
+}
+.folder-tree > .nav-section {
+	flex-shrink: 0;
+}
+.folder-tree > .nav-list {
+	display: block;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior-y: contain;
+	scrollbar-width: thin;
+}
+.folder-tree > .nav-list > * + * {
+	margin-top: 2px;
 }
 .nav-section-tags {
 	margin-top: 24px;
@@ -284,14 +305,18 @@ textarea:focus-visible {
 	flex-wrap: wrap;
 	gap: 6px;
 	padding: 4px 8px;
-}
-.sidebar-spacer {
-	flex: 1;
-	min-height: 30px;
+	flex: 0 1 auto;
+	align-content: flex-start;
+	min-height: 36px;
+	max-height: min(20dvh, 160px);
+	overflow-y: auto;
+	overscroll-behavior-y: contain;
+	scrollbar-width: thin;
 }
 .sidebar-bottom {
 	display: grid;
 	gap: 4px;
+	margin-top: 16px;
 	padding-top: 12px;
 	border-top: 1px solid var(--border-subtle);
 }
@@ -1158,6 +1183,62 @@ textarea:focus-visible {
 	font-size: 13px;
 }
 
+/* Keep the fixed sections usable on short desktop windows and landscape phones. */
+@media (max-height: 700px) {
+	.sidebar {
+		padding-block: 12px 8px;
+	}
+	.sidebar .brand {
+		padding-bottom: 12px;
+	}
+	.sidebar .new-note-button {
+		margin-bottom: 4px;
+	}
+	.sidebar > .folder-tree {
+		margin-top: 12px;
+	}
+	.sidebar .nav-section-tags {
+		margin-top: 12px;
+	}
+	.sidebar .sidebar-bottom {
+		margin-top: 8px;
+		padding-top: 8px;
+	}
+	.sidebar .user-panel {
+		padding-top: 6px;
+	}
+}
+
+@media (max-height: 600px) {
+	.sidebar {
+		padding-block: 6px;
+	}
+	.sidebar .brand {
+		padding-bottom: 0;
+	}
+	.sidebar .new-note-button {
+		margin-bottom: 0;
+	}
+	.sidebar .nav-section {
+		margin-block: 3px;
+	}
+	.sidebar > .folder-tree {
+		margin-top: 4px;
+	}
+	.sidebar .nav-link,
+	.sidebar .nav-action {
+		min-height: 28px;
+	}
+	.sidebar .sidebar-bottom {
+		gap: 0;
+		margin-top: 4px;
+		padding-top: 6px;
+	}
+	.sidebar .user-panel {
+		padding-block: 0;
+	}
+}
+
 @media (min-width: 701px) {
 	.sidebar {
 		width: 52px;
@@ -1622,13 +1703,16 @@ textarea:focus-visible {
 	position: relative;
 }
 .code-copy-button {
+	position: absolute;
+	right: 0;
+	top: 0;
+	z-index: 2;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	width: 24px;
 	height: 24px;
-	flex: 0 0 24px;
-	margin-left: 0.4rem;
+	margin: 0;
 	padding: 0;
 	border: 1px solid var(--border-subtle);
 	border-radius: 4px;
@@ -1636,21 +1720,98 @@ textarea:focus-visible {
 	color: var(--text-secondary);
 	font: 11px var(--font-ui);
 	cursor: pointer;
-	vertical-align: middle;
+	opacity: 0;
+	pointer-events: none;
+}
+.preview-content :not(pre) > .code-snippet > .code-copy-button {
+	left: 100%;
+	right: auto;
+	top: auto;
+	bottom: 0;
+}
+.cm-code-copy-anchor:not(.cm-code-copy-block) > .code-copy-button {
+	left: 0;
+	right: auto;
+}
+.code-snippet:hover > .code-copy-button,
+.code-snippet:focus-within > .code-copy-button,
+.cm-code-copy-anchor.is-code-hovered > .code-copy-button,
+.cm-code-copy-anchor:focus-within > .code-copy-button {
+	opacity: 1;
+	pointer-events: auto;
 }
 .code-copy-button:hover,
 .code-copy-button:focus-visible {
 	color: var(--text-primary);
 }
+.code-copy-button:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
 .preview-content pre .code-snippet {
 	display: block;
-	padding-right: 32px;
 }
-.preview-content pre .code-copy-button {
+.cm-code-copy-anchor {
+	display: inline-block;
+	position: relative;
+	width: 0;
+	height: 0;
+	vertical-align: top;
+	user-select: none;
+}
+.cm-code-copy-line {
+	position: relative;
+}
+.cm-code-copy-block {
 	position: absolute;
 	top: 0;
 	right: 0;
 }
-.cm-code-copy {
-	user-select: none;
+@media (hover: none), (pointer: coarse) {
+	.code-copy-button {
+		opacity: 1;
+		pointer-events: auto;
+	}
 }
+
+/* External Markdown import covers the workspace without unmounting unsaved editors. */
+.workspace-import-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	display: grid;
+	place-items: center;
+	padding: 24px;
+	background: var(--bg-app);
+	color: var(--text-primary);
+}
+.workspace-import-card {
+	width: min(640px, 100%);
+	padding: 48px 24px;
+	border: 2px dashed currentColor;
+	border-radius: 20px;
+	text-align: center;
+}
+.workspace-import-symbol { display: block; font-size: 48px; }
+.workspace-import-card h2 { margin: 12px 0; font-size: 24px; }
+.workspace-import-card p { margin: 8px 0; }
+.workspace-import-hint { opacity: .65; font-size: 13px; }
+.workspace-import-result {
+	position: fixed;
+	bottom: 24px;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 1001;
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	width: max-content;
+	max-width: calc(100vw - 32px);
+	padding: 14px 18px;
+	border: 1px solid var(--border-subtle);
+	border-radius: 12px;
+	background: var(--bg-app);
+	color: var(--text-primary);
+	box-shadow: 0 8px 30px #0002;
+}
+.workspace-import-result button { flex: none; font-size: 22px; cursor: pointer; }

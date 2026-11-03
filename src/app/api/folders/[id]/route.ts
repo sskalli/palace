@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUserId, jsonError, parseJson } from "@/lib/http";
-import { ensureNameFree, folderErrorResponse, folderWithDescendantIds, FolderError } from "@/lib/folders";
+import {
+	ensureNameFree,
+	folderErrorResponse,
+	folderWithDescendantIds,
+	FolderError,
+} from "@/lib/folders";
 import { folderUpdateSchema, recordIdSchema } from "@/lib/validation";
 
 interface RouteContext {
