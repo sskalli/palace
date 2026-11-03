@@ -1622,13 +1622,16 @@ textarea:focus-visible {
 	position: relative;
 }
 .code-copy-button {
+	position: absolute;
+	right: 0;
+	top: 0;
+	z-index: 2;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	width: 24px;
 	height: 24px;
-	flex: 0 0 24px;
-	margin-left: 0.4rem;
+	margin: 0;
 	padding: 0;
 	border: 1px solid var(--border-subtle);
 	border-radius: 4px;
@@ -1636,21 +1639,46 @@ textarea:focus-visible {
 	color: var(--text-secondary);
 	font: 11px var(--font-ui);
 	cursor: pointer;
-	vertical-align: middle;
+	opacity: 0;
+	pointer-events: none;
+}
+.code-snippet:hover > .code-copy-button,
+.code-snippet:focus-within > .code-copy-button,
+.cm-code-copy-anchor.is-code-hovered > .code-copy-button,
+.cm-code-copy-anchor:focus-within > .code-copy-button {
+	opacity: 1;
+	pointer-events: auto;
 }
 .code-copy-button:hover,
 .code-copy-button:focus-visible {
 	color: var(--text-primary);
 }
+.code-copy-button:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
 .preview-content pre .code-snippet {
 	display: block;
-	padding-right: 32px;
 }
-.preview-content pre .code-copy-button {
+.cm-code-copy-anchor {
+	display: inline-block;
+	position: relative;
+	width: 0;
+	height: 0;
+	vertical-align: top;
+	user-select: none;
+}
+.cm-code-copy-line {
+	position: relative;
+}
+.cm-code-copy-block {
 	position: absolute;
 	top: 0;
 	right: 0;
 }
-.cm-code-copy {
-	user-select: none;
+@media (hover: none), (pointer: coarse) {
+	.code-copy-button {
+		opacity: 1;
+		pointer-events: auto;
+	}
 }

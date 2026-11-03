@@ -150,7 +150,10 @@ describe("fenced code", () => {
 		const doc = "```js\nbody\n";
 		const open = make(doc, doc.length);
 		const closed = open.update({ changes: { from: doc.length, insert: "```" } }).state;
-		expect(closed.field(livePreviewField).size).toBe(1);
+		const controls: unknown[] = [];
+		const cursor = closed.field(livePreviewField).iter();
+		for (; cursor.value; cursor.next()) if (cursor.value.spec.widget) controls.push(cursor.value.spec.widget);
+		expect(controls).toHaveLength(1);
 		const reopened = closed.update({ changes: { from: doc.length, to: doc.length + 3 } }).state;
 		expect(reopened.field(livePreviewField).size).toBe(0);
 	});

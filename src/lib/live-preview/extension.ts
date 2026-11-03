@@ -132,13 +132,22 @@ class RenderedBlockWidget extends WidgetType {
 }
 
 class CodeCopyWidget extends WidgetType {
-	constructor(readonly source: string) {
+	constructor(
+		readonly source: string,
+		readonly id: string,
+		readonly block = false,
+	) {
 		super();
 	}
 	eq(other: CodeCopyWidget) {
-		return this.source === other.source;
+		return this.source === other.source && this.id === other.id && this.block === other.block;
 	}
 	toDOM() {
+		const anchor = document.createElement("span");
+		anchor.className = `cm-code-copy-anchor${this.block ? " cm-code-copy-block" : ""}`;
+		anchor.dataset.codeCopyId = this.id;
+		anchor.contentEditable = "false";
+		anchor.addEventListener("mouseleave", () => anchor.classList.remove("is-code-hovered"));
 		const button = document.createElement("button");
 		button.type = "button";
 		button.className = "code-copy-button cm-code-copy";
@@ -154,12 +163,38 @@ class CodeCopyWidget extends WidgetType {
 			event.stopPropagation();
 			void copyCode(button, this.source);
 		});
-		return button;
+		anchor.append(button);
+		return anchor;
 	}
 	ignoreEvent() {
 		return true;
 	}
 }
+
+/** Associate all visual fragments of wrapped code with its one out-of-flow control. */
+const codeCopyHover = EditorView.domEventHandlers({
+	mouseover(event, view) {
+		const region =
+			event.target instanceof Element ? event.target.closest<HTMLElement>("[data-code-copy-id]") : null;
+		for (const anchor of view.dom.querySelectorAll<HTMLElement>(".cm-code-copy-anchor")) {
+			anchor.classList.toggle(
+				"is-code-hovered",
+				!!region && anchor.dataset.codeCopyId === region.dataset.codeCopyId,
+			);
+		}
+		return false;
+	},
+	mouseout(event, view) {
+		const next =
+			event.relatedTarget instanceof Element
+				? event.relatedTarget.closest<HTMLElement>("[data-code-copy-id]")
+				: null;
+		for (const anchor of view.dom.querySelectorAll<HTMLElement>(".cm-code-copy-anchor")) {
+			anchor.classList.toggle("is-code-hovered", !!next && anchor.dataset.codeCopyId === next.dataset.codeCopyId);
+		}
+		return false;
+	},
+});
 
 const activeSignatures = new WeakMap<DecorationSet, string>();
 
@@ -197,7 +232,17 @@ export function buildDecorations(state: EditorState, spans = collectLiveSyntax(s
 				const end = block.closed ? lastLine.from : block.to;
 				const indentation = firstLine.text.match(/^ {0,3}/)![0].length;
 				const source = unindentCode(state.doc.sliceString(Math.min(firstLine.to + 1, end), end), indentation);
-				ranges.push(Decoration.widget({ widget: new CodeCopyWidget(source), side: 1 }).range(firstLine.to));
+				const id = String(block.from);
+				for (let n = firstLine.number; n <= lastLine.number; n++) {
+					ranges.push(
+						Decoration.line({ attributes: { class: "cm-code-copy-line", "data-code-copy-id": id } }).range(
+							state.doc.line(n).from,
+						),
+					);
+				}
+				ranges.push(
+					Decoration.widget({ widget: new CodeCopyWidget(source, id, true), side: 1 }).range(firstLine.to),
+				);
 			}
 			continue;
 		}
@@ -211,12 +256,18 @@ export function buildDecorations(state: EditorState, spans = collectLiveSyntax(s
 	}
 
 	for (const span of inlineCode) {
-		ranges.push(Decoration.mark({ class: "cm-inline-code" }).range(span.from, span.to));
+		const id = String(span.from);
+		ranges.push(
+			Decoration.mark({ class: "cm-inline-code", attributes: { "data-code-copy-id": id } }).range(
+				span.from,
+				span.to,
+			),
+		);
 		const source = state.doc
 			.sliceString(span.from + span.markLength, span.to - span.markLength)
 			.replace(/\n/g, " ");
 		const normalized = /^ .* $/.test(source) && /[^ ]/.test(source) ? source.slice(1, -1) : source;
-		ranges.push(Decoration.widget({ widget: new CodeCopyWidget(normalized), side: 1 }).range(span.to));
+		ranges.push(Decoration.widget({ widget: new CodeCopyWidget(normalized, id), side: 1 }).range(span.to));
 		if (span.active) continue;
 		const hidden = Decoration.replace({});
 		ranges.push(
@@ -268,7 +319,7 @@ export const livePreviewField = StateField.define<DecorationSet>({
 		}
 		return value;
 	},
-	provide: (field) => EditorView.decorations.from(field),
+	provide: (field) => [EditorView.decorations.from(field), codeCopyHover],
 });
 
 export const livePreviewTheme = EditorView.baseTheme({
