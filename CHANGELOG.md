@@ -70,3 +70,7 @@
 ### Fixed
 
 - Fixed the sidebar not collapsing on mobile when creating a note.
+
+## 0.1.0
+
+- Initial MVP integration and app bootstrap, with basic note creation, pinning, and archiving.
