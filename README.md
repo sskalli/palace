@@ -69,11 +69,8 @@ npx prisma studio
 
 Run `npm run db:deploy` again after deploying each future schema migration, targeting the appropriate database. The Vercel build intentionally does not migrate the database automatically.
 
-## V1 notes and limitations
+## Documentation
 
-- PostgreSQL is the source of truth; notes are not written as server-side files.
-- Search uses case-insensitive title/body matching and is limited to recent results.
-- Ambiguous duplicate note titles remain unresolved wikilinks.
-- Autosave uses a last-successful-save-wins policy; simultaneous edits on different devices are not merged.
-- Archiving is reversible. Archived notes can be permanently deleted from the Archived view; there is no import flow.
-- V1 does not include boards/canvases, collaboration, offline sync, attachments, reminders, AI, plugins, or a native mobile app.
+- [Changelog](CHANGELOG.md)
+- [Performance audit](doc/PERFORMANCE_AUDIT.md)
+- [V1 roadmap](doc/palace-v1-roadmap.md)
